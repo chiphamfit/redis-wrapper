@@ -1,2 +1,6 @@
 # Installed packages
 node_modules
+
+# Setting files
+.vscode
+.eslintrc.json

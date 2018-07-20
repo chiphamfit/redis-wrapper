@@ -2,8 +2,8 @@
 Caching Mongo database with Redis
 
 # Dependencies
-Install redis client, mongodb, nodemon, babel
-```npm install redis mongodb nodemon --save```
+Install util, redis, mongodb, nodemon, babel
+```npm install util redis mongodb nodemon --save```
 ```npm install babel-cli babel-preset-env --save-dev```
 <!-- Add these to `package.json` file
  ```
