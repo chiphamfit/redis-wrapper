@@ -2,9 +2,8 @@
   "name": "redis-wrapper",
   "version": "0.0.1",
   "description": "Use redis as mongodb cacher",
-  "main": "index.js",
+  "main": "app.js",
   "scripts": {
-    "lint": "eslint",
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "nodemon --exec babel-node --presets env"
   },
@@ -34,9 +33,6 @@
   },
   "devDependencies": {
     "babel-cli": "^6.26.0",
-    "babel-preset-env": "^1.7.0",
-    "eslint": "^4.19.1",
-    "eslint-config-airbnb-base": "^13.0.0",
-    "eslint-plugin-import": "^2.13.0"
+    "babel-preset-env": "^1.7.0"
   }
 }
