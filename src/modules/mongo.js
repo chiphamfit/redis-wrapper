@@ -2,62 +2,89 @@
 import MongoClient from 'mongodb';
 import util from 'util';
 
-const default_url = 'mongodb://localhost:';
-
 export class MongoDb {
     constructor({
-        url = default_url,
+        host = 'localhost',
         port = 27017,
-        database_name = 'test'
+        databaseName = 'test'
     } = {}) {
-        this.database_name = database_name;
-        this.url = url + port + '/';
-        console.log(this.url);
+        this.url = `mongodb://${host}:${port}/${databaseName}`;
+        this.databaseName = databaseName;
     }
+
+    //Function
+    setting({
+        host = 'localhost',
+        port = 27017,
+        databaseName = 'test'
+    } = {}) {
+        this.url = `mongodb://${host}:${port}/${databaseName}`;
+        this.databaseName = databaseName;
+    }
+
     async connect() {
-        const connect = util.promisify(MongoClient.connect);
-        return connect(this.url, {
+        const mongoConnect = util.promisify(MongoClient.connect);
+        const option = {
             useNewUrlParser: true
-        });
-    }
-    async getDatabase() {
-        await this.connect()
+        };
+        await mongoConnect(this.url, option)
             .then((database) => {
-                this.database = database.db(this.database_name);
-                console.log('Connected to database ' + this.database_name);
-            }).catch((err) => {
-                console.log(err.message);
-            });
+                this.db = database.db(this.databaseName);
+                console.log('Connected to ' + this.url);
+            })
+            .catch((err) => {
+                console.log('Error when connect to database:\n' + err.message);
+                throw err;
+            })
     }
-    // Load all collection on database to redis
-    async load() {
-        if (this.database === {}) {
-            console.log('Reconnect to ' + this.url);
-            this.connect();
-        }
-        await MongoClient.connect(this.url, {
-            useNewUrlParser: true
-        }, function (err, client) {
-            client.db.listCollections().toArray(function (err, collections) {});
-        });
-        // console.log(abc);
-        // if(abc===this.database.db()){
-        //     console.log('sameee');
-        // } else {
-        //     console.log('damnnn');
-        // }
 
-        //const collectionList = this.database.listCollection();
-        // db.listCollection();
+    async getCollections() {
+        await this.connect()
+            .catch((err) => {
+                throw err;
+            })
+        const getList = this.db.listCollections().toArray();
+        await getList
+            .then((collections) => {
+                this.collections = collections;
+            })
+            .catch((err) => {
+                console.log('Error when get database collection:\n' + err.message);
+                throw err;
+            })
+    }
 
+    async getAllDocuments() {
+        await this.getCollections()
+            .then(() => {
+                this.collections.forEach(collection => {
+                    console.log(collection.name);
+                    const documents = this.db.collection(collection.name).find();
+                    documents.forEach(document => {
+                        console.log(document);
+                    })
+                });
+            })
+            .catch((err) => {
+                console.log('Error when get document');
+                throw err;
+            });
     }
 }
 
-// MongoClient.connect(this.url, (err, db) => {
-//     if (err) {
-//         console.log('Error when connect to database ' + this.url);
-//         console.log(err);
-//     };
 
-//     console.log('Use database ' + this.url);
-// });
+// eliminate callback
+
+
+// const getColl = util.promisify(this.db.listCollections().toArray);
+// getColl()
+//     .then((collections) => {
+//         this.collections = collections;
+//         console.log(this.collections);
+//         this.collections.forEach(collection => {
+//             console.log(collection.name);
+//         });
+//         return collections;
+//     })
+//     .catch(() => {
+//     })
