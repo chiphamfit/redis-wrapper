@@ -58,9 +58,9 @@ export class MongoDb {
         await this.getCollections()
             .then(() => {
                 this.collections.forEach(collection => {
-                    console.log(collection.name);
                     const documents = this.db.collection(collection.name).find();
                     documents.forEach(document => {
+                        //add to redis here
                         console.log(document);
                     })
                 });
@@ -71,20 +71,3 @@ export class MongoDb {
             });
     }
 }
-
-
-// eliminate callback
-
-
-// const getColl = util.promisify(this.db.listCollections().toArray);
-// getColl()
-//     .then((collections) => {
-//         this.collections = collections;
-//         console.log(this.collections);
-//         this.collections.forEach(collection => {
-//             console.log(collection.name);
-//         });
-//         return collections;
-//     })
-//     .catch(() => {
-//     })

@@ -5,11 +5,11 @@ Caching Mongo database with Redis
 Install util, redis, mongodb, nodemon, babel
 ```npm install util redis mongodb nodemon --save```
 ```npm install babel-cli babel-preset-env --save-dev```
-<!-- Add these to `package.json` file
+Add these to `package.json` file
  ```
 "scripts": {
-    "start": "nodemon --exec babel-node --presets env"
+    "start": "nodemon --exec babel-node --presets env index.js"
   },
 "presets": 
     ["env"]
-```  -->
+``` 
