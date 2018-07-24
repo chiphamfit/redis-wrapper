@@ -22,6 +22,20 @@ export class MongoDb {
         this.databaseName = databaseName;
     }
 
+    async syncData() {
+        Promise.all([
+            await this.connect(),
+            await this.getCollections(),
+            this.getDocuments()
+        ])
+        .then(()=>{
+            console.log('Load complete');
+        })
+        .catch(()=>{
+            console.log('Failed');
+        })
+    }
+
     async connect() {
         const mongoConnect = util.promisify(MongoClient.connect);
         const option = {
@@ -39,12 +53,7 @@ export class MongoDb {
     }
 
     async getCollections() {
-        await this.connect()
-            .catch((err) => {
-                throw err;
-            })
-        const getList = this.db.listCollections().toArray();
-        await getList
+        await this.db.listCollections().toArray()
             .then((collections) => {
                 this.collections = collections;
             })
@@ -54,20 +63,13 @@ export class MongoDb {
             })
     }
 
-    async getAllDocuments() {
-        await this.getCollections()
-            .then(() => {
-                this.collections.forEach(collection => {
-                    const documents = this.db.collection(collection.name).find();
-                    documents.forEach(document => {
-                        //add to redis here
-                        console.log(document);
-                    })
-                });
+    async getDocuments() {
+        await this.collections.forEach(collection => {
+            const documents = this.db.collection(collection.name).find();
+            documents.forEach(document => {
+                //add to redis here
+                console.log(document);
             })
-            .catch((err) => {
-                console.log('Error when get document');
-                throw err;
-            });
+        });
     }
 }
