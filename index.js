@@ -1,6 +1,8 @@
-import { MongoDb } from './src/modules/mongo';
+import {
+    Wrapper
+} from './src/modules/wrapper';
 
-const mongo = new MongoDb({databaseName: 'demo'});
-mongo.syncData();
-
-
+const wrapper = new Wrapper({
+    databaseName: 'demo'
+});
+wrapper.syncData();
