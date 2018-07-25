@@ -31,9 +31,6 @@ export class Wrapper {
         await this.connectRedis();
         await this.getCollections();
         await this.loadData()
-            .then(() => {
-                this.find('test');
-            })
     }
 
     async connectMongo() {
@@ -74,10 +71,15 @@ export class Wrapper {
     }
 
     async set(document) {
-        const value = JSON.stringify(document);
-        const id = JSON.stringify(document._id);
-        this.redisClient.set(id, value, redis.print)
-
+        // const value = JSON.stringify(document);
+        // const id = JSON.stringify(document._id);
+        //this.redisClient.set(id, value, redis.print)
+        const listField = Object.keys(document);
+        const key = JSON.stringify(document._id);
+        listField.forEach(field => {
+            const hash = [key, field, JSON.stringify(document[field])];
+            this.redisClient.hset(hash);
+        })
     }
 
     connectRedis({
