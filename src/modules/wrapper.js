@@ -86,18 +86,21 @@ export class Wrapper {
 
     importDocument(collection, document) {
         const id = `${document._id}`;
+        delete document._id;
         const value = JSON.stringify(document);
         //insert document index
-        this.redisClient.sadd(collection, id);
-        this.redisClient.set(id, value)
+        this.redisClient.hset(collection, id, value)
+        document._id = id;
     }
 
     importIndex(document) {
         const listField = Object.keys(document);
         listField.forEach(field => {
-            const value = JSON.stringify(document[field]);
-            //Use set to store index
-            this.redisClient.sadd(`${field}:${value}`, `${document._id}`);
+            if(field != '_id'){
+                const value = JSON.stringify(document[field]);
+                //Use set to store index
+                this.redisClient.sadd(`${field}:${value}`, `${document._id}`);
+            }
         })
     }
 
