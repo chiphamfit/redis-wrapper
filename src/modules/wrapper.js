@@ -4,6 +4,8 @@ import util from 'util';
 import redis from 'redis';
 
 const MAX_TIME_LIFE = 60;
+const main_storage = 0;
+const index_storage = 1;
 
 export class Wrapper {
     constructor({
@@ -27,12 +29,10 @@ export class Wrapper {
     }
 
     async syncData() {
-        await this.connectMongo();
         await this.connectRedis();
+        await this.connectMongo();
         await this.getCollections();
-        await this.loadData()
-        .then(()=>{
-        })
+        this.importData();
     }
 
     async connectMongo() {
@@ -43,17 +43,28 @@ export class Wrapper {
         await mongoClient(this.url, option)
             .then((database) => {
                 this.db = database.db(this.databaseName);
-                console.log('Connected to ' + this.url);
+                console.log('Connected to mongodb server: ' + this.url);
             })
             .catch((err) => {
-                console.log('Error when connect to database:\n' + err.message);
+                console.log('Error when connect to mongodb:\n' + err.message);
                 throw err;
             })
     }
 
+
+    async connectRedis() {
+        this.redisClient = redis.createClient();
+        this.redisClient.on('connect', () => {
+            console.log('Connected to redis');
+        })
+        this.redisClient.on('error', (err) => {
+            console.log('Error when connect to redis: ' + err.message);
+            throw err;
+        })
+    }
+
     async getCollections() {
-        const getListCollection = this.db.listCollections().toArray();
-        await getListCollection
+        await this.db.listCollections().toArray()
             .then((listCollection) => {
                 this.collections = listCollection;
             })
@@ -63,38 +74,44 @@ export class Wrapper {
             })
     }
 
-    async loadData() {
+    async importData() {
         this.collections.forEach(collection => {
             const listDocuments = this.db.collection(collection.name).find();
             listDocuments.forEach(document => {
-                this.set(document);
+                this.importDocument(collection.name, document);
+                this.importIndex(document);
             })
         })
     }
 
-    async set(document) {
+    importDocument(collection, document) {
+        const id = `${document._id}`;
+        const value = JSON.stringify(document);
+        //insert document index
+        this.redisClient.sadd(collection, id);
+        this.redisClient.set(id, value)
+    }
+
+    importIndex(document) {
         const listField = Object.keys(document);
-        const key = JSON.stringify(document._id);
         listField.forEach(field => {
-            const hash = [key, field, JSON.stringify(document[field])];
-            this.redisClient.hset(hash);
-            this.find(key);
+            const value = JSON.stringify(document[field]);
+            //Use set to store index
+            this.redisClient.sadd(`${field}:${value}`, `${document._id}`);
         })
     }
 
-    connectRedis({
-        port = 6379,
-        host = 'localhost'
-    } = {}) {
-        this.redisClient = redis.createClient(port, host);
-    }
-
-    find(id) {
-        console.log(id);
+    //Query data in redis
+    find(object, option) {
         this.redisClient.hgetall(id, (err, reply) => {
             if (err) throw err;
             const json = JSON.parse(JSON.stringify(reply));
             console.log(json);
         })
+    }
+
+    //rebuild JSON from string
+    rebuildObject(string) {
+
     }
 }
