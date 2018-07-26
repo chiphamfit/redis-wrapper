@@ -74,7 +74,7 @@ export class Wrapper {
             })
     }
 
-    async importData() {
+    importData() {
         this.collections.forEach(collection => {
             const listDocuments = this.db.collection(collection.name).find();
             listDocuments.forEach(document => {
@@ -86,22 +86,23 @@ export class Wrapper {
 
     importDocument(collection, document) {
         const id = `${document._id}`;
-        delete document._id;
-        const value = JSON.stringify(document);
-        //insert document index
-        this.redisClient.hset(collection, id, value)
-        document._id = id;
+        this.redisClient.hset(id, `collection`, collection);
+        for (let key in document) {
+            if (key != '_id') {
+                const value = JSON.stringify(document[key]);
+                this.redisClient.hset(id, key, value);
+            }
+        }
     }
 
+    //Insert index of doccument in redis
     importIndex(document) {
-        const listField = Object.keys(document);
-        listField.forEach(field => {
-            if(field != '_id'){
-                const value = JSON.stringify(document[field]);
-                //Use set to store index
-                this.redisClient.sadd(`${field}:${value}`, `${document._id}`);
+        for (let key in document) {
+            if (key != '_id') {
+                const value = `${document[key]}`;
+                this.redisClient.sadd(`${key}:${value}`, `${document._id}`);
             }
-        })
+        }
     }
 
     //Query data in redis
