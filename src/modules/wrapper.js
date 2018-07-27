@@ -3,11 +3,7 @@ import MongoClient from 'mongodb';
 import util from 'util';
 import redis from 'redis';
 
-const MAX_TIME_LIFE = 60;
-const main_storage = 0;
-const index_storage = 1;
-
-export class Wrapper {
+export default class Wrapper {
     constructor({
         host = 'localhost',
         port = 27017,
@@ -51,7 +47,6 @@ export class Wrapper {
             })
     }
 
-
     async connectRedis() {
         this.redisClient = redis.createClient();
         this.redisClient.on('connect', () => {
@@ -86,20 +81,18 @@ export class Wrapper {
 
     importDocument(collection, document) {
         const id = `${document._id}`;
-        this.redisClient.hset(id, `collection`, collection);
-        for (let key in document) {
-            if (key != '_id') {
-                const value = JSON.stringify(document[key]);
-                this.redisClient.hset(id, key, value);
-            }
-        }
+        let _collection = JSON.parse(JSON.stringify(document));
+        delete _collection._id;
+        this.redisClient.hset(collection, id, JSON.stringify(_collection));
+        // for (let key in document) {
+        //     if (key != '_id') {
+        //         const value = JSON.stringify(document[key]);
+        //         this.redisClient.hset(id, key, value);
+        //     }
+        // }
     }
 
-    //Insert index of doccument in redis
-    // document 
-    // {
-    //     field: value
-    // }
+    // Insert index of doccument in redis
     async importIndex(document) {
         const id = `${document._id}`;
         for (let field in document) {
@@ -117,7 +110,7 @@ export class Wrapper {
     }
 
     createSubObject(parent = '', id, document) {
-        let subObj = {};
+        const subObj = {};
         for (let field in document) {
             let _field = `${parent}:${field}`;
             subObj[_field] = document[field];
@@ -127,12 +120,16 @@ export class Wrapper {
     }
 
     //Query data in redis
-    find(object, option) {
+    find(obj = {}, option) {
         this.redisClient.hgetall(id, (err, reply) => {
             if (err) throw err;
             const json = JSON.parse(JSON.stringify(reply));
             console.log(json);
         })
+    }
+
+    findOne() {
+
     }
 
 
