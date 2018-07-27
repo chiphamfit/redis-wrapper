@@ -96,13 +96,34 @@ export class Wrapper {
     }
 
     //Insert index of doccument in redis
-    importIndex(document) {
-        for (let key in document) {
-            if (key != '_id') {
-                const value = `${document[key]}`;
-                this.redisClient.sadd(`${key}:${value}`, `${document._id}`);
+    // document 
+    // {
+    //     field: value
+    // }
+    async importIndex(document) {
+        const id = `${document._id}`;
+        for (let field in document) {
+            if (field != '_id') {
+                const value = document[field];
+                if (typeof (value) === typeof {}) {
+                    let subObj = this.createSubObject(field, id, value);
+                    this.importIndex(subObj);
+                } else {
+                    const key = `${field}:${value}`;
+                    this.redisClient.sadd(key, id);
+                }
             }
         }
+    }
+
+    createSubObject(parent = '', id, document) {
+        let subObj = {};
+        for (let field in document) {
+            let _field = `${parent}:${field}`;
+            subObj[_field] = document[field];
+        }
+        subObj._id = id;
+        return subObj;
     }
 
     //Query data in redis
@@ -113,6 +134,8 @@ export class Wrapper {
             console.log(json);
         })
     }
+
+
 
     //rebuild JSON from string
     rebuildObject(string) {
