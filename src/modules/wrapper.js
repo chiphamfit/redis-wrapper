@@ -28,7 +28,7 @@ export default class Wrapper {
         await this.connectRedis();
         await this.connectMongo();
         await this.getCollections();
-        this.importData();
+        await this.importData();
     }
 
     async connectMongo() {
@@ -81,9 +81,9 @@ export default class Wrapper {
 
     importDocument(collection, document) {
         const id = `${document._id}`;
-        let _collection = JSON.parse(JSON.stringify(document));
-        delete _collection._id;
-        this.redisClient.hset(collection, id, JSON.stringify(_collection));
+        let _document = JSON.parse(JSON.stringify(document));
+        delete _document._id;
+        this.redisClient.hset(collection, id, JSON.stringify(_document));
         // for (let key in document) {
         //     if (key != '_id') {
         //         const value = JSON.stringify(document[key]);
@@ -92,7 +92,7 @@ export default class Wrapper {
         // }
     }
 
-    // Insert index of doccument in redis
+    // Insert inverted index of doccument in redis
     async importIndex(document) {
         const id = `${document._id}`;
         for (let field in document) {
@@ -120,19 +120,27 @@ export default class Wrapper {
     }
 
     //Query data in redis
-    find(obj = {}, option) {
-        this.redisClient.hgetall(id, (err, reply) => {
-            if (err) throw err;
-            const json = JSON.parse(JSON.stringify(reply));
-            console.log(json);
-        })
+    find(collection, query = {}, option) {
+        const cursor = [];
+        if (JSON.stringify(query) == '{}') {
+            this.redisClient.hgetall(collection, (err, result) => {
+                if (err) {
+                    throw err;
+                }
+                for (let field in result) {
+                    // const obj = JSON.parse(result[field]);
+                    // cursor.push(obj);
+                    cursor.push(result[field]);
+                }
+                console.log(cursor);
+            })
+        }
+        return cursor;
     }
 
     findOne() {
 
     }
-
-
 
     //rebuild JSON from string
     rebuildObject(string) {
