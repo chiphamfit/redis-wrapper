@@ -5,6 +5,8 @@ const wrapper = new Wrapper({
 });
 wrapper.syncData()
     .then(() => {
-        const result = wrapper.find('complex', {}, null);
+        wrapper.find('car', {}, {});
     })
-    
+    .catch((err) => {
+        console.log(err);
+    })

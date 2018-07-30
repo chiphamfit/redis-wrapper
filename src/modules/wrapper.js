@@ -25,9 +25,9 @@ export default class Wrapper {
     }
 
     async syncData() {
-        await this.connectRedis();
         await this.connectMongo();
         await this.getCollections();
+        await this.connectRedis();
         await this.importData();
     }
 
@@ -51,6 +51,7 @@ export default class Wrapper {
         this.redisClient = redis.createClient();
         this.redisClient.on('connect', () => {
             console.log('Connected to redis');
+            return;
         })
         this.redisClient.on('error', (err) => {
             console.log('Error when connect to redis: ' + err.message);
@@ -83,13 +84,9 @@ export default class Wrapper {
         const id = `${document._id}`;
         let _document = JSON.parse(JSON.stringify(document));
         delete _document._id;
-        this.redisClient.hset(collection, id, JSON.stringify(_document));
-        // for (let key in document) {
-        //     if (key != '_id') {
-        //         const value = JSON.stringify(document[key]);
-        //         this.redisClient.hset(id, key, value);
-        //     }
-        // }
+        this.redisClient.set(id, JSON.stringify(_document));
+        this.redisClient.sadd(collection, id);
+
     }
 
     // Insert inverted index of doccument in redis
@@ -109,7 +106,7 @@ export default class Wrapper {
         }
     }
 
-    createSubObject(parent = '', id, document) {
+    createSubObject(parent, id, document) {
         const subObj = {};
         for (let field in document) {
             let _field = `${parent}:${field}`;
@@ -120,30 +117,45 @@ export default class Wrapper {
     }
 
     //Query data in redis
-    find(collection, query = {}, option) {
-        const cursor = [];
+    async find(collection, query = {}, option = {}) {
         if (JSON.stringify(query) == '{}') {
-            this.redisClient.hgetall(collection, (err, result) => {
-                if (err) {
-                    throw err;
-                }
-                for (let field in result) {
-                    // const obj = JSON.parse(result[field]);
-                    // cursor.push(obj);
-                    cursor.push(result[field]);
-                }
-                console.log(cursor);
-            })
+            return await this.findAll(collection);
         }
-        return cursor;
     }
 
-    findOne() {
-
+    async findAll(collection) {
+        let listId = [];
+        let listDocument = [];
+        const client = this.redisClient;
+        const smembers = util.promisify(client.smembers).bind(client);
+        await smembers(collection)
+            .then((result) => {
+                listId = result;
+            })
+        await listId.forEach(id => {
+            this.get(id)
+                .then((document) => {
+                    listDocument.push(document);
+                })
+        }).then(() => {
+            console.log(listDocumentz);
+        })
+        return listDocument;
     }
 
     //rebuild JSON from string
-    rebuildObject(string) {
-
+    get(id) {
+        const client = this.redisClient;
+        let document = {};
+        const get = util.promisify(client.get).bind(client);
+        get(id).then((result) => {
+                document = Object.assign({
+                    _id: id
+                }, JSON.parse(result));
+                return document;
+            })
+            .catch((err) => {
+                throw err;
+            })
     }
 }
