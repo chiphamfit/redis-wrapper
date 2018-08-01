@@ -1,12 +1,27 @@
 export async function init(mongoClient = {}, redisClient = {}) {
-    //get data from mongodb
-    const db = mongoClient.db();
+    // Check client
+    if (redisClient.on) {
+        redisClient.on('error', (err) => {
+            throw err;
+        })
+    }
+    if (!mongoClient.then && !mongoClient.db) {
+        throw new Error('mongoClient must be connected first')
+        
+    }
+
+    // Get data from mongodb
+    const _mongoClient = await mongoClient.catch((err) => {
+        throw err;
+    });
+    const db = _mongoClient.db();
     const listCollections = await db.listCollections().toArray();
     listCollections.forEach(async (collection) => {
         const listDocuments = await db.collection(collection.name).find();
         insertDocuments(redisClient, collection.name, listDocuments);
     });
-    console.log('Init complete');
+    console.log('Wrapper client initialized');
+    return true;
 }
 
 // insert list of documents to Redis in string
