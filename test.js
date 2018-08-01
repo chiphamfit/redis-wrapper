@@ -8,7 +8,8 @@ const test = async () => {
     useNewUrlParser: true
   });
   const client = await app.createClient(mongoClient, redisClient);
-  client.collection('car').find({});
+  const docs = await client.collection('inventory').find({});
+  console.log(docs);
   // console.log(collections);
 }
 

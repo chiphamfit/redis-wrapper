@@ -5,7 +5,8 @@ export async function init(mongoClient = {}, redisClient = {}) {
             throw err;
         })
     }
-    if (!(mongoClient.then || mongoClient.db)) {
+    const has = mongoClient.hasOwnProperty;
+    if (!(mongoClient.then || has('db'))) {
         throw new Error('mongoClient must be connected first')
     }
 

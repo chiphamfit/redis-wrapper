@@ -6,16 +6,7 @@ export default class wrapper {
         this.mongoClient = client.mongoClient;
         this.collectionName = '';
     }
-    
-    flush() {
-        this.redisClient.on('error', (err) => {
-            if (err) {
-                throw err;
-            }
-        })
-        this.redisClient.flushall();
-        // console.log('redis database cleaned');
-    }
+  
 
     async exit() {
         if (this.isConnected) {
@@ -33,13 +24,25 @@ export default class wrapper {
         const _option = JSON.stringify(option);
         const client = this.redisClient;
         const collectionName = this.collectionName;
-        console.log();
+
         if (_query === '{}' && _option === '{}') {
-            const result = await findAll(client, collectionName);
+            return await findAll(client, collectionName);
         }
+        
+        //do some thing here when query or option is passed
     }
 
     async findOne() {
 
+    }
+
+    //useless one 
+    flush() {
+        this.redisClient.on('error', (err) => {
+            if (err) {
+                throw err;
+            }
+        })
+        this.redisClient.flushall();
     }
 }
