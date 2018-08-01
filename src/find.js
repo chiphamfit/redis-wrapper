@@ -1,7 +1,7 @@
 import redis from 'redis';
 
 //Query data in redis
-export async function find(client, collection, query = {}, option = {}) {
+export async function find(collection, query = {}, option = {}) {
     if (JSON.stringify(query) == '{}' ) {
         return await findAll(client, collection, option);
     }

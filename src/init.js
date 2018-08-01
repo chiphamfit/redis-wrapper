@@ -7,7 +7,6 @@ export async function init(mongoClient = {}, redisClient = {}) {
     }
     if (!mongoClient.then && !mongoClient.db) {
         throw new Error('mongoClient must be connected first')
-        
     }
 
     // Get data from mongodb
@@ -20,8 +19,12 @@ export async function init(mongoClient = {}, redisClient = {}) {
         const listDocuments = await db.collection(collection.name).find();
         insertDocuments(redisClient, collection.name, listDocuments);
     });
-    console.log('Wrapper client initialized');
-    return true;
+    // console.log('wrapper client initialized');
+    const client = {
+        mongoClient: _mongoClient,
+        redisClient: redisClient
+    }
+    return client;
 }
 
 // insert list of documents to Redis in string
