@@ -1,17 +1,11 @@
-import redis from 'redis';
+import util from 'util';
 
 //Query data in redis
-export async function find(collection, query = {}, option = {}) {
-    if (JSON.stringify(query) == '{}' ) {
-        return await findAll(client, collection, option);
-    }
-}
-
-async function findAll(client, collection, option) {
+export async function findAll(client, collectionName) {
     let documentList = [];
     const smembers = util.promisify(client.smembers).bind(client);
     const get = util.promisify(client.get).bind(client);
-    const idList = await smembers(collection);
+    const idList = await smembers(collectionName);
     idList.forEach(async (id) => {
         const docString = await get(id);
         const document = Object.assign({
