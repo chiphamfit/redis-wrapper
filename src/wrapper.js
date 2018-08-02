@@ -1,18 +1,23 @@
 import {
-  find
-} from './find';
+  find,
+  findOne
+} from './operations/find';
+import {
+  initializeDatabase
+} from './db';
 
 export default class wrapper {
   constructor(client) {
-    this.redisClient = client.redisClient;
-    this.mongoClient = client.mongoClient;
+    this.client = client;
     this.collectionName = '';
   }
 
+  init() {
+    initializeDatabase(this.client.mongo, this.client.redis);
+  }
 
   async exit() {
-    if (this.isConnected) {}
-    this.isConnected = false;
+
   }
 
   collection(collectionName) {
@@ -29,12 +34,12 @@ export default class wrapper {
   }
 
   //useless one 
-  flush() {
-    this.redisClient.on('error', (err) => {
-      if (err) {
-        throw err;
-      }
-    })
-    this.redisClient.flushall();
-  }
+  // flush() {
+  //   this.redisClient.on('error', (err) => {
+  //     if (err) {
+  //       throw err;
+  //     }
+  //   })
+  //   this.redisClient.flushall();
+  // }
 }
