@@ -7,10 +7,9 @@ const test = async () => {
   const mongoClient = mongodb.connect('mongodb://localhost:27017/demo', {
     useNewUrlParser: true
   });
-  const client = await index.createClient(mongoClient, redisClient);
-  const docs = await client.collection('inventory').find({});
-  // console.log(docs);
-  // console.log(collections);
+  const client = await index.createClient(null, null);
+  await client.init();
+  console.log(await client.collection('demo').find({}));
 }
 
 test();
