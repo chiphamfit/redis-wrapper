@@ -17,7 +17,7 @@ export async function init(mongoClient = {}, redisClient = {}) {
     const db = _mongoClient.db();
     const listCollections = await db.listCollections().toArray();
     listCollections.forEach(async (collection) => {
-        const listDocuments = await db.collection(collection.name).find();
+        const listDocuments = await db.collection(collection.name).find().toArray();
         insertDocuments(redisClient, collection.name, listDocuments);
     });
     // console.log('wrapper client initialized');
@@ -30,38 +30,40 @@ export async function init(mongoClient = {}, redisClient = {}) {
 
 // insert list of documents to Redis in string
 function insertDocuments(redisClient, collection, listDocuments) {
-    listDocuments.forEach((document) => {
-        redisClient.set(`${document._id}`, JSON.stringify(document));
-        // update collection index
-        redisClient.sadd(collection, `${document._id}`);
-        insertIndex(redisClient, document);
+    listDocuments.forEach(async (document) => {
+        const key = `${document._id}`;
+        await redisClient.set(key, JSON.stringify(document));
+        // insert collection index
+        insertIndex(redisClient, collection, document);
     })
 }
 
 // insert inverted index of doccument into redis
-function insertIndex(redisClient, document) {
+function insertIndex(redisClient, collection, document) {
     const id = `${document._id}`;
     for (let field in document) {
         if (field != '_id') {
             const value = document[field];
             if (typeof (value) === typeof {}) {
-                let subObj = createSubObject(field, id, value);
-                insertIndex(redisClient, subObj);
+                let subObj = createChild(field, id, value);
+                insertIndex(redisClient, collection, subObj);
             } else {
-                const key = `${field}:${value}`;
+                const key = `${collection}:${field}:${value}`;
                 redisClient.sadd(key, id);
             }
         }
     }
 }
 
-//Create document from subObject of Document
-function createSubObject(parent, id, document) {
-    const subObj = {};
-    for (let field in document) {
-        let _field = `${parent}:${field}`;
-        subObj[_field] = document[field];
+//Create child from object
+function createChild(prefix, id, object) {
+    const child = {};
+    for (let field in object) {
+        let _field = `${prefix}:${field}`;
+        child[_field] = object[field];
     }
-    subObj._id = id;
-    return subObj;
+    if (!child._id) {
+        child._id = id;
+    }
+    return child;
 }
