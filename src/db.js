@@ -6,7 +6,7 @@ import {
 } from './operations/db_operations';
 
 export async function createWrapperClient(mongoClient = {}, redisClient = {}) {
-  let _mongoClient = (mongoClient || mongodb.connect(config.MONGO_URL, config.parserOption));
+  let _mongoClient = mongoClient || mongodb.connect(config.MONGO_URL, config.parserOption);
   const _redisClient = await (redisClient || redis.createClient());
   _redisClient.on('error', (err) => {
     throw err;
@@ -28,12 +28,15 @@ export async function initializeDatabase(mongoClient, redisClient) {
     throw new Error('Invalid parameter');
   }
 
+  // if()
   const mongoDb = mongoClient.db();
   const listCollections = await mongoDb.listCollections().toArray();
   listCollections.forEach(async (collection) => {
-    const listDocuments = await mongoDb.collection(collection.name).find().toArray();
-    insertDocuments(redisClient, collection.name, listDocuments);
+    const cursor = await mongoDb.collection(collection.name).find();
+    const listDocuments = await cursor.toArray();
+    await insertDocuments(redisClient, collection.name, listDocuments);
   });
+  return true;
 }
 
 export function disconnect(mongoClient, redisClient) {
@@ -41,13 +44,13 @@ export function disconnect(mongoClient, redisClient) {
     throw new Error('Invalid parameter');
   }
 
-  const mongo_has = mongoClient.hasOwnProperty;
-  const redis_has = redisClient.hasOwnProperty;
-  if (mongo_has('db')) {
-    mongoClient.db().close();
+  if (mongoClient.close) {
+    mongoClient.close();
   }
 
-  if (redis_has('quit')) {
+  if (redisClient.quit) {
     redisClient.quit();
   }
+
+  return true;
 }

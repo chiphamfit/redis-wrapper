@@ -9,7 +9,7 @@ const test = async () => {
   });
   const client = await index.createClient(null, null);
   await client.init();
-  console.log(await client.collection('demo').find({}));
+  client.exit();
 }
 
 test();

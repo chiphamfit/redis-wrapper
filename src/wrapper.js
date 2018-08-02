@@ -3,7 +3,8 @@ import {
   findOne
 } from './operations/find';
 import {
-  initializeDatabase
+  initializeDatabase,
+  disconnect
 } from './db';
 
 export default class wrapper {
@@ -12,12 +13,12 @@ export default class wrapper {
     this.collectionName = '';
   }
 
-  init() {
-    initializeDatabase(this.client.mongo, this.client.redis);
+  async init() {
+    return await initializeDatabase(this.client.mongo, this.client.redis);
   }
 
   async exit() {
-
+    return await disconnect(this.client.mongo, this.client.redis)
   }
 
   collection(collectionName) {
