@@ -1,6 +1,5 @@
-import { init } from './src/init';
+import { init } from './src/db';
 import wrapper from './src/wrapper';
-
 import listener from './src/listener';
 import redis from 'redis';
 import mongodb from 'mongodb';

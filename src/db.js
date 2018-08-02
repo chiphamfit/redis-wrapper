@@ -34,19 +34,19 @@ function insertDocuments(redisClient, collection, listDocuments) {
         const key = `${document._id}`;
         await redisClient.set(key, JSON.stringify(document));
         // insert collection index
-        insertIndex(redisClient, collection, document);
+        insertIndexs(redisClient, collection, document);
     })
 }
 
 // insert inverted index of doccument into redis
-function insertIndex(redisClient, collection, document) {
+function insertIndexs(redisClient, collection, document) {
     const id = `${document._id}`;
     for (let field in document) {
         if (field != '_id') {
             const value = document[field];
             if (typeof (value) === typeof {}) {
                 let subObj = createChild(field, id, value);
-                insertIndex(redisClient, collection, subObj);
+                insertIndexs(redisClient, collection, subObj);
             } else {
                 const key = `${collection}:${field}:${value}`;
                 redisClient.sadd(key, id);
