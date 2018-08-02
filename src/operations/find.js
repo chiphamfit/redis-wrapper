@@ -2,7 +2,7 @@ import util from 'util';
 
 export async function find(wrapper, query, option) {
   const collectionName = wrapper.collectionName;
-  const client = wrapper.redisClient;
+  const client = wrapper.client.redis;
   const _query = query || {};
   const _option = option || {};
   const query_number_args = Object.keys(query).length;
@@ -29,7 +29,6 @@ async function findAll(client, collectionName) {
   const listKey = await smembers(collectionName);
   for (let key of listKey) {
     const stringDocument = await get(key);
-    // error when parse nested JSON       
     const document = JSON.parse(stringDocument);
     listDocument.push(document);
   }
