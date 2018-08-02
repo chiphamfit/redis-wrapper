@@ -1,4 +1,4 @@
-import { findAll } from './find';
+import { find } from './find';
 
 export default class wrapper {
     constructor(client) {
@@ -20,16 +20,7 @@ export default class wrapper {
     }
 
     async find(query = {}, option = {}) {
-        const _query = JSON.stringify(query);
-        const _option = JSON.stringify(option);
-        const client = this.redisClient;
-        const collectionName = this.collectionName;
-
-        if (_query === '{}' && _option === '{}') {
-            return await findAll(client, collectionName);
-        }
-        
-        //do some thing here when query or option is passed
+        return find(this, query, option);
     }
 
     async findOne() {
