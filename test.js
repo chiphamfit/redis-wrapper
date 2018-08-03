@@ -1,6 +1,6 @@
-import mongodb from 'C:/Users/chipham/AppData/Local/Microsoft/TypeScript/2.9/node_modules/@types/mongodb';
-import redis from 'C:/Users/chipham/AppData/Local/Microsoft/TypeScript/2.9/node_modules/@types/redis';
-import * as index from '.'; 
+import mongodb from 'mongodb';
+import redis from 'redis';
+import * as index from './index'; 
 
 const test = async () => {
   const redisClient = redis.createClient();
