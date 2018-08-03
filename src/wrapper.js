@@ -1,46 +1,68 @@
-import {
-  find,
-  findOne
-} from './operations/find';
-import {
-  initializeDatabase,
-  disconnect
-} from './db';
+import collection from './collection'
+import { createError } from './error'
 
-export default class wrapper {
-  constructor(client) {
-    this.client = client;
-    this.collectionName = '';
+export default class Wrapper {
+  constructor(client, dbName) {
+    if (!client.mongoClient) {
+      throw createError('Wrapper constructor' ,'Invalid input: mongoClient is undefined');
+    }
+  
+    if (!client.redisClient) {
+      throw createError('Wrapper constructor', 'Invalid input: redisClient is undefined');
+    }
+
+    if (dbName && typeof dbName !== 'string') {
+      throw createError('Wrapper constructor', 'Wrong type of dbName: dbName must be string');
+    }
+
+    this.client = client || {};
+    this.dbName = dbName || '';
   }
 
-  async init() {
-    return await initializeDatabase(this.client.mongo, this.client.redis);
-  }
+  disconnect() {
+		if (!this.client.mongo || !this.client.redis) {
+			throw this.createError('Invalid client');
+		}
+	
+		if (this.mongo.close) {
+			this.mongo.close();
+		}
+	
+		if (this.client.redis.quit) {
+			this.client.redis.quit();
+		}
+	
+		return true;
+	}
 
-  async exit() {
-    return await disconnect(this.client.mongo, this.client.redis)
+  //none-tested
+  createCollection(collectionName) {
+    if (typeof collectionName !== 'string') {
+      throw new Error('collectionName must be a string');
+    }
+
+    this.collection[collectionName] = new collection(collectionName);
   }
 
   collection(collectionName) {
-    this.collectionName = collectionName;
-    return this;
+    if (typeof collectionName !== 'string') {
+      throw new Error('collectionName must be a string');
+    }
+
+    if (!collection[collectionName]) {
+      this.createCollection(collectionName);
+    }
+
+    return this.collection[collectionName];
   }
 
-  async find(query = {}, option = {}) {
-    return find(this, query, option);
+  //useless one don't know what it for yet
+  flush() {
+    this.redisClient.on('error', (err) => {
+      if (err) {
+        throw err;
+      }
+    })
+    this.redisClient.flushall();
   }
-
-  async findOne() {
-
-  }
-
-  //useless one 
-  // flush() {
-  //   this.redisClient.on('error', (err) => {
-  //     if (err) {
-  //       throw err;
-  //     }
-  //   })
-  //   this.redisClient.flushall();
-  // }
 }

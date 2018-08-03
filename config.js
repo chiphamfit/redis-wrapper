@@ -1,4 +1,4 @@
-export const MONGO_URL = 'mongodb://localhost:27017/demo';
+export const mongo_url = 'mongodb://localhost:27017/demo';
 export const parserOption = {
   useNewUrlParser: true
 }

@@ -18,3 +18,19 @@ Add these to `package.json` file
 "presets":
     ["env"]
 ```
+
+Strore mongo's documents in string and use inverted index to store it 'field:value' for query
+
+    Mongo data
+        collection: collectionName
+        document {
+            _id: id,
+            [field: value]
+        }
+    Redis data
+        Document's data stored in string as id: {JSON.stringify(document)}
+        Inverted index stored in set as
+            {
+                key: field:value
+                value: [id,..]
+            }
