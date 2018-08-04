@@ -21,6 +21,8 @@ export async function connect(client) {
   _redisClient.on('error', (err) => {
     throw createError('Wrapper Client', err.message);
   });
+
+  return true;
 }
 
 export async function initialize(dbName, client) {

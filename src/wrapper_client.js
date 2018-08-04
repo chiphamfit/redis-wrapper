@@ -25,10 +25,19 @@ export default class WrapperClient {
     this.dbName = dbName || '';
   }
 
-  connect() {
-    connect(this.mongoClient)
+  async connect() {
+    this.isConnected = await connect(this.mongoClient) || false;
   }
 
+  async initialize(dbName) {
+    if (!this.isConnected) {
+      this.connect();
+    }
+
+    const _dbName = dbName || this.dbName;
+    initialize(_dbName, this.client);
+  }
+  
   disconnect() {
     if (!this.client.mongo || !this.client.redis) {
       throw this.createError('Invalid client');
@@ -41,8 +50,8 @@ export default class WrapperClient {
     if (this.client.redis.quit) {
       this.client.redis.quit();
     }
-
-    return true;
+    
+    this.isConnected = false;
   }
 
   //none-tested
