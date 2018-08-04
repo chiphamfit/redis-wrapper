@@ -1,48 +1,43 @@
-import {
-  createError
-} from './error';
+import wrapperError from './errorOperations';
+import mongodb from 'mongodb';
+import redis from 'redis';
 import {
   mongo_url,
   parserOption
-} from '../config';
+} from '../../config';
 
-export async function connect(client) {
-  if (!client) {
-    throw createError('Wrapper Client', 'Invalid input');
-  }
-  let _mongoClient = client.mongoClient || mongodb.connect(mongo_url, parserOption);
-  const _redisClient = await (client.redisClient || redis.createClient());
-  if (_mongoClient.then) {
-    _mongoClient = await _mongoClient.catch((err) => {
-      throw createError('Wrapper Client', err.message);
-    });
+export async function connect(mongoClient, redisClient) {
+  if (!mongoClient) {
+    mongoClient = await mongodb.connect(mongo_url, parserOption);
+  } else {
+    await mongoClient
   }
 
+  const _redisClient = await (redisClient || redis.createClient());
   _redisClient.on('error', (err) => {
-    throw createError('Wrapper Client', err.message);
+    console.log('Wrapper Client', err.message);
   });
 
   return true;
 }
 
-export async function initialize(dbName, client) {
-  if (!client.mongoClient) {
-    throw createError('Wrapper Client', 'Invalid input: mongoClient is undefined');
+export async function initialize(mongoClient, redisClient) {
+  if (!mongoClient) {
+    console.log('Wrapper Client', 'Invalid input: mongoClient is undefined');
   }
 
-  if (!client.redisClient) {
-    throw createError('Wrapper Client', 'Invalid input: redisClient is undefined');
+  if (!redisClient) {
+    console.log('Wrapper Client', 'Invalid input: redisClient is undefined');
   }
-  
-  dbName = dbName || '';
-  const mongoDb = dbName !== '' ? client.mongoClient.db(dbName) : client.mongoClient.db();
+
+  const mongoDb = (await mongoClient).db();
   const listCollections = await mongoDb.listCollections().toArray();
-  
+
   for (let i = 0, length = listCollections.length; i < length; i++) {
     const collection = listCollections[i];
     const cursor = await mongoDb.collection(collection.name).find();
     const listDocuments = await cursor.toArray();
-    await insertDocuments(client.redisClient, collection.name, listDocuments);
+    await insertDocuments(redisClient, collection.name, listDocuments);
   }
 }
 
