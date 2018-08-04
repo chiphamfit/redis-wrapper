@@ -1,8 +1,7 @@
 import {
   find,
   findOne
-} from './operations/find';
-import wrapper from './wrapper_client';
+} from './operations/findOperations';
 
 export default class Collection {
   constructor(name, client) {
