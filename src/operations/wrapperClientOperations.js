@@ -1,4 +1,3 @@
-import wrapperError from './errorOperations';
 import mongodb from 'mongodb';
 import redis from 'redis';
 import {
@@ -15,7 +14,7 @@ export async function connect(mongoClient, redisClient) {
 
   const _redisClient = await (redisClient || redis.createClient());
   _redisClient.on('error', (err) => {
-    console.log('Wrapper Client', err.message);
+    throw err;
   });
 
   return true;
@@ -23,11 +22,11 @@ export async function connect(mongoClient, redisClient) {
 
 export async function initialize(mongoClient, redisClient) {
   if (!mongoClient) {
-    console.log('Wrapper Client', 'Invalid input: mongoClient is undefined');
+    throw new Error('Invalid input: mongoClient is ' + typeof mongoClient);
   }
 
   if (!redisClient) {
-    console.log('Wrapper Client', 'Invalid input: redisClient is undefined');
+    throw new Error('Invalid input: redisClient is ' + typeof redisClient);
   }
 
   const mongoDb = (await mongoClient).db();
@@ -57,9 +56,12 @@ function insertIndexs(redisClient, collectionName, document) {
       if (typeof(value) === 'object') {
         let subObj = createChild(field, id, value);
         insertIndexs(redisClient, collectionName, subObj);
-      } else {
+      } else if (isNaN(value)) {
         const key = `${collectionName}:${field}:${value}`;
         redisClient.sadd(key, id);
+      } else {
+        const key = `${collectionName}:${field}`;
+        redisClient.zadd(key, value, id);
       }
     }
   }
