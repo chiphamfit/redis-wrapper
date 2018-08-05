@@ -1,10 +1,3 @@
-// import WrapperClient from './src/wrapper_client';
-
-// export async function createClient(mongoClient, redisClient) {
-//   const client = await db.createWrapperClient(mongoClient, redisClient);
-//   return new wrapper(client);
-// }
-import wrapperError from './src/operations/errorOperations';
 import {
   connect,
   initialize
@@ -13,11 +6,11 @@ import {
 export default class WrapperClient {
   constructor(mongoClient, redisClient) {
     if (!mongoClient) {
-      throw wrapperError('Wrapper constructor', 'Invalid input: mongoClient is undefined');
+      throw new Error('Invalid input: mongoClient is ' + typeof mongoClient);
     }
 
     if (!redisClient) {
-      throw wrapperError('Wrapper constructor', 'Invalid input: redisClient is undefined');
+      throw new Error('Invalid input: redisClient is ' + typeof redisClient);
     }
 
     this.mongoClient = mongoClient || {};

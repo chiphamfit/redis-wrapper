@@ -26,7 +26,7 @@ export default async function find(wrapper, query, option) {
     query: selector,
     option: newOption
   }
-  console.log(findCommand);
+  // console.log(findCommand);
 }
 
 function createNewOption(option) {
@@ -79,7 +79,7 @@ async function get(idList) {
       _id: id
     }, JSON.parse(docString));
     documentList.push(document);
-    console.log(document);
+    // console.log(document);
   });
   get(id).then((result) => {
       document = Object.assign({
