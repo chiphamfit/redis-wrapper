@@ -1,27 +1,40 @@
 import mongodb from 'mongodb';
 import redis from 'redis';
 import {
-  isEmpty
-} from './subFunctions'
+  isEmpty,
+  isMongoClient,
+  isRedisClient
+} from './checker'
 import {
   mongo_url,
   mongo_parse_option
 } from '../../config';
 
-export async function connect(mongoClient, redisClient) {
-  if (isEmpty(mongoClient)) {
-    mongoClient = await mongodb.connect(mongo_url, mongo_parse_option);
-  } else {
-    await mongoClient
+export async function connectMongoClient(mongoClient) {
+  if (!isMongoClient(mongoClient)) {
+    return new Error('Invalid input: mongoClient must be a MongoClient');
   }
 
-  const _redisClient = await (redisClient || redis.createClient());
-  _redisClient.on('error', (err) => {
+  if (isEmpty(mongoClient)) {
+    return await mongodb.connect(mongo_url, mongo_parse_option);
+  } else {
+    return await mongoClient;
+  }
+}
+
+export async function connectRedisClient(redisClient) {
+  if (!isRedisClient(redisClient)) {
+    return new Error('Invalid input: redisClient must be a redisClient');
+  }
+
+  redisClient = await (redisClient || redis.createClient());
+  redisClient.on('error', (err) => {
     return err;
   });
 
-  return true;
+  return redisClient;
 }
+
 
 export async function initialize(mongoClient, redisClient) {
   if (isEmpty(mongoClient)) {
@@ -60,6 +73,8 @@ function insertIndexs(redisClient, collectionName, document) {
     }
 
     const value = document[field];
+
+    // store Date value in milisecond in zset
     if(value.getTime) {
       const key = `${collectionName}:${field}:Date`;
       const time_ms = value.getTime();
@@ -67,6 +82,7 @@ function insertIndexs(redisClient, collectionName, document) {
       continue;
     }
 
+    // store Timestamp in milisecon in zset
     if (value._bsontype === 'Timestamp') {
       const key = `${collectionName}:${field}:Timestamp`;
       const time_ms = value.toNumber();
@@ -74,18 +90,22 @@ function insertIndexs(redisClient, collectionName, document) {
       continue;
     }
 
-    if (typeof(value) === 'object') {
+    // if value of field is object, create field's subObject
+    // then insert subObject to index
+    if (typeof value === 'object') {
       let subObj = createChild(field, id, value);
       insertIndexs(redisClient, collectionName, subObj);
       continue;
     }
 
+    // store numberic values to zset
     if (isNaN(value)) {
       const key = `${collectionName}:${field}:${value}`;
       redisClient.sadd(key, id);
       continue;
     }
 
+    // store orther type values in set of string 
     const key = `${collectionName}:${field}`;
     redisClient.zadd(key, value, id);
   }

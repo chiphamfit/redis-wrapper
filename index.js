@@ -1,59 +1,81 @@
+import mongodb from 'mongodb';
+import Collection from './src/collection';
 import {
-  connect,
+  connectMongoClient,
+  connectRedisClient,
   initialize
 } from './src/operations/WrapperClient';
-import Collection from './src/collection';
+import {
+  isEmpty,
+  isMongoClient,
+  isRedisClient,
+  isValidString
+} from './src/operations/checker';
+import { isError } from './node_modules/util';
 
 export default class WrapperClient {
   constructor(mongoClient, redisClient) {
-    if (!mongoClient) {
-      return new Error('Invalid input: mongoClient is ' + typeof mongoClient);
+    if (!isMongoClient(mongoClient)) {
+      return new Error('Invalid input: mongoClient must be a mongoClient');
     }
 
-    if (!redisClient) {
-      return new Error('Invalid input: redisClient is ' + typeof redisClient);
+    if (!isRedisClient(redisClient)) {
+      return new Error('Invalid input: redisClient must be a redisClient');
     }
 
+    // ensure clients are not undefine
     this.mongoClient = mongoClient || {};
     this.redisClient = redisClient || {};
     this.isConnected = false;
   }
 
   async connect() {
-    this.isConnected = await connect(this.mongoClient, this.redisClient) || false;
+    this.mongoClient = await connectMongoClient(this.mongoClient);
+    this.redisClient = await connectRedisClient(this.redisClient);
+
+    if (isError(this.mongoClient)) {
+      throw this.mongoClient;
+    }
+
+    if (isError(this.redisClient)) {
+      throw this.redisClient;
+    }
+
+    this.isConnected =  true;
   }
 
   async initialize() {
+    // try to connect
     if (!this.isConnected) {
-      try {
-        await this.connect();
-      } catch (error) {
-        return error
-      }
+      await this.connect();
     }
 
-    await initialize(this.mongoClient, this.redisClient);
+    if (this.isConnected) {
+      return await initialize(this.mongoClient, this.redisClient);
+    }
+
+    throw new Error('Can\'t connect to client');
   }
 
   disconnect() {
-    if (!this.mongoClient || !this.redisClient) {
-      return this.wrapperError('Invalid client');
+    if (!isMongoClient(this.mongoClient)) {
+      throw new Error('Invalid input: mongoClient must be a MongoClient');
     }
 
-    if (this.mongoClient.close) {
+    if (!isRedisClient(this.redisClient)) {
+      throw new Error('Invalid input: redisClient must be a redisClient ');
+    }
+
+    if (this.isConnected) {
       this.mongoClient.close();
-    }
-
-    if (this.redisClient.quit) {
       this.redisClient.quit();
+      this.isConnected = false;
     }
-
-    this.isConnected = false;
   }
 
   collection(collectionName) {
-    if (typeof collectionName !== 'string') {
-      return new Error('collectionName must be string');
+    if (!isValidString(collectionName)) {
+      throw new Error('collectionName must be a valid string');
     }
 
     return new Collection(collectionName, this.mongoClient, this.redisClient);

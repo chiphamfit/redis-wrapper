@@ -6,7 +6,7 @@ Wrap mongo database with redis
 
 This module require these packages redis, mongodb, babel, util.
 
-```npm install util redis mongodb nodemon --save```
+<!-- ```npm install util redis mongodb nodemon --save```
 ```npm install babel-cli babel-preset-env --save-dev```
 
 Add these to `package.json` file
@@ -17,14 +17,14 @@ Add these to `package.json` file
   },
 "presets":
     ["env"]
-```
+``` -->
 
 ## Data struct
 
 Strore mongo's documents in string and use inverted index to store it 'field:value' for query
 
 Mongo data
-        
+
         collection: collectionName
         document {
             _id: id,
@@ -33,7 +33,7 @@ Mongo data
 
 Redis data
   Document's data stored in hash:
-          
+
         key: collectionName
         {
                 field: _id
