@@ -7,11 +7,11 @@ import Collection from './src/collection';
 export default class WrapperClient {
   constructor(mongoClient, redisClient) {
     if (!mongoClient) {
-      throw new Error('Invalid input: mongoClient is ' + typeof mongoClient);
+      return new Error('Invalid input: mongoClient is ' + typeof mongoClient);
     }
 
     if (!redisClient) {
-      throw new Error('Invalid input: redisClient is ' + typeof redisClient);
+      return new Error('Invalid input: redisClient is ' + typeof redisClient);
     }
 
     this.mongoClient = mongoClient || {};
@@ -25,7 +25,11 @@ export default class WrapperClient {
 
   async initialize() {
     if (!this.isConnected) {
-      await this.connect();
+      try {
+        await this.connect();
+      } catch (error) {
+        return error
+      }
     }
 
     await initialize(this.mongoClient, this.redisClient);
@@ -33,7 +37,7 @@ export default class WrapperClient {
 
   disconnect() {
     if (!this.mongoClient || !this.redisClient) {
-      throw this.wrapperError('Invalid client');
+      return this.wrapperError('Invalid client');
     }
 
     if (this.mongoClient.close) {
@@ -49,7 +53,7 @@ export default class WrapperClient {
 
   collection(collectionName) {
     if (typeof collectionName !== 'string') {
-      throw new Error('collectionName must be string');
+      return new Error('collectionName must be string');
     }
 
     return new Collection(collectionName, this.mongoClient, this.redisClient);
@@ -59,7 +63,7 @@ export default class WrapperClient {
   flush() {
     this.redisClient.on('error', (err) => {
       if (err) {
-        throw err;
+        return err;
       }
     })
     this.redisClient.flushall();

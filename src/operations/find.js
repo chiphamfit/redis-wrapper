@@ -7,7 +7,7 @@ import {
 
 export default async function find(collection, query, option) {
   if (isEmpty(collection)) {
-    throw new Error('collection is empty');
+    return new Error('collection is empty');
   }
 
   let selector = query || {};
@@ -35,12 +35,13 @@ function createNewOption(option) {
   newOption.limit = option.limit || 0;
   newOption.sort = option.sort || undefined;
   newOption.skip = option.skip || 0;
+  newOption.findOne = option.findOne || false;
   return newOption;
 }
 
 async function execFindCommand(findCommand) {
   if (isEmpty(findCommand)) {
-    throw new Error('findCommand is empty');
+    return new Error('findCommand is empty');
   }
 
   // unpack findCommand data
@@ -60,8 +61,12 @@ async function execFindCommand(findCommand) {
 }
 
 async function findAll(collectionName, redisClient, option) {
+  let condition = [collectionName, 0];
+  if (option.findOne) {
+    condition.push('COUNT', 1);
+  }
   const hscan = util.promisify(redisClient.hscan).bind(redisClient);
-  const hscanResult = await hscan(collectionName, 0);
+  const hscanResult = await hscan(condition);
   const nextCursor = hscanResult[0] || 0;
   const cursor = [];
   const listRawDocument = hscanResult[1] || [];
@@ -75,11 +80,16 @@ async function findAll(collectionName, redisClient, option) {
 async function findById(id, collectionName, redisClient, option) {
   id = `${id}`;
   if ( typeof id !== 'string') {
-    throw new Error('id must be a string');
+    return new Error('id must be a string');
+  }
+  
+  let condition = [collectionName, 0, 'MATCH', id];
+  if (option.findOne) {
+    condition.push('COUNT', 1);
   }
 
   const hscan = util.promisify(redisClient.hscan).bind(redisClient);
-  const hscanResult = await hscan(collectionName, 0, 'MATCH', id);
+  const hscanResult = await hscan(condition);
   const nextCursor = hscanResult[0] || 0;
   const cursor = [];
   const listRawDocument = hscanResult[1] || [];

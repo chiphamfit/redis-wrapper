@@ -3,28 +3,31 @@ import find from './operations/find';
 export default class Collection {
   constructor(name, mongoClient, redisClient) {
     if (typeof name !== 'string') {
-      throw new Error('collectionName must be a string');
+      return new Error('collectionName must be a string');
     }
 
     if (!mongoClient) {
-      throw new Error('Invalid mongoClient input');
+      return new Error('Invalid mongoClient input');
     }
 
     if (!redisClient) {
-      throw new Error('Invalid redisClient input');
+      return new Error('Invalid redisClient input');
     }
 
     this.name = name || '';
     this.mongoClient = mongoClient;
     this.redisClient = redisClient;
   }
- 
+
   async find(query, option) {
     return await find(this, query, option);
   }
 
-  findOne(query = {}, option = {}) {
-    return findOne(this, query, option);
+  async findOne(query = {}, option = {
+    findOne: true
+  }) {
+    option.findOne = true;
+    return await find(this, query, option);
   }
 
   update() {

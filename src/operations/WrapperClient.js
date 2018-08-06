@@ -17,7 +17,7 @@ export async function connect(mongoClient, redisClient) {
 
   const _redisClient = await (redisClient || redis.createClient());
   _redisClient.on('error', (err) => {
-    throw err;
+    return err;
   });
 
   return true;
@@ -25,11 +25,11 @@ export async function connect(mongoClient, redisClient) {
 
 export async function initialize(mongoClient, redisClient) {
   if (isEmpty(mongoClient)) {
-    throw new Error('Invalid input: mongoClient is ' + typeof mongoClient);
+    return new Error('Invalid input: mongoClient is ' + typeof mongoClient);
   }
 
   if (isEmpty(redisClient)) {
-    throw new Error('Invalid input: redisClient is ' + typeof redisClient);
+    return new Error('Invalid input: redisClient is ' + typeof redisClient);
   }
 
   const mongoDb = (await mongoClient).db();

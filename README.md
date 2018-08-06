@@ -19,6 +19,8 @@ Add these to `package.json` file
     ["env"]
 ```
 
+## Data struct
+
 Strore mongo's documents in string and use inverted index to store it 'field:value' for query
 
 Mongo data
