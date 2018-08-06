@@ -32,7 +32,7 @@ export default async function find(collection, query, option) {
 
 function createNewOption(option) {
   let newOption = Object.assign({}, option);
-  newOption.limit = option.limit || 0;
+  newOption.limit = option.limit || undefined;
   newOption.sort = option.sort || undefined;
   newOption.skip = option.skip || 0;
   newOption.findOne = option.findOne || false;
@@ -61,18 +61,22 @@ async function execFindCommand(findCommand) {
 }
 
 async function findAll(collectionName, redisClient, option) {
-  let condition = [collectionName, 0];
-  if (option.findOne) {
-    condition.push('COUNT', 1);
-  }
+  let nextCursor = 0;
+  let cursor = [];
   const hscan = util.promisify(redisClient.hscan).bind(redisClient);
-  const hscanResult = await hscan(condition);
-  const nextCursor = hscanResult[0] || 0;
-  const cursor = [];
-  const listRawDocument = hscanResult[1] || [];
-  for (let i = 1, length = listRawDocument.length; i < length; i += 2) {
-    cursor.push(listRawDocument[i]);
+  do {
+    const scanResult = await hscan(collectionName, nextCursor);
+    nextCursor = scanResult[0];
+    const listRaw = scanResult[1];
+    for (let i = 1, length = listRaw.length; i < length; i += 2) {
+      cursor.push(listRaw[i]);
+    }
+  } while (nextCursor != 0);
+  
+  if (option.limit >= 0) {
+    return cursor.slice(0, option.limit);
   }
+
   return cursor;
 }
 
@@ -83,18 +87,12 @@ async function findById(id, collectionName, redisClient, option) {
     return new Error('id must be a string');
   }
   
-  let condition = [collectionName, 0, 'MATCH', id];
-  if (option.findOne) {
-    condition.push('COUNT', 1);
+  const hscan = util.promisify(redisClient.hscan).bind(redisClient);
+  const hscanResult = await hscan(collectionName, 0, 'MATCH', id);
+  const cursor =  [hscanResult[1][1]] || [];
+  if (option.limit >= 0) {
+    return cursor.slice(0, option.limit);
   }
 
-  const hscan = util.promisify(redisClient.hscan).bind(redisClient);
-  const hscanResult = await hscan(condition);
-  const nextCursor = hscanResult[0] || 0;
-  const cursor = [];
-  const listRawDocument = hscanResult[1] || [];
-  for (let i = 1, length = listRawDocument.length; i < length; i += 2) {
-    cursor.push(listRawDocument[i]);
-  }
   return cursor;
 }
