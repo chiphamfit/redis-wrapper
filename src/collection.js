@@ -1,31 +1,46 @@
-import {
-  find,
-  findOne
-} from './operations/findOperations';
+import find from './operations/find';
 
 export default class Collection {
-  constructor(name, client) {
-    
+  constructor(name, mongoClient, redisClient) {
     if (typeof name !== 'string') {
-            
+      throw new Error('collectionName must be a string');
     }
+
+    if (!mongoClient) {
+      throw new Error('Invalid mongoClient input');
+    }
+
+    if (!redisClient) {
+      throw new Error('Invalid redisClient input');
+    }
+
     this.name = name || '';
-
-    this.client = client;
+    this.mongoClient = mongoClient;
+    this.redisClient = redisClient;
   }
-
-  static collectionError(decription) {
-    let error = new Error();
-    error.name = 'CollectionError';
-    error.message = decription || '';
-  }
-  async find(query = {}, option = {}) {
+ 
+  find(query = {}, option = {}) {
     return find(this, query, option);
   }
 
-  async findOne() {
+  findOne(query = {}, option = {}) {
+    return findOne(this, query, option);
+  }
+
+  update() {
 
   }
 
+  insert() {
+
+  }
+
+  delete() {
+
+  }
+
+  drop() {
+
+  }
 
 }
