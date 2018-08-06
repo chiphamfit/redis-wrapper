@@ -10,3 +10,7 @@ export function isEmpty(object) {
   
   return false;
 }
+
+export function numField(object) {
+  return Object.keys(object).length;
+}

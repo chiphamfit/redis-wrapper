@@ -1,8 +1,13 @@
 import util from 'util';
+import {
+  isEmpty,
+  numField
+} from './subFunctions';
+// import Collection from '../collection';
 
 export default async function find(collection, query, option) {
-  if (!collection) {
-    throw new Error('collection is missing');
+  if (isEmpty(collection)) {
+    throw new Error('collection is empty');
   }
 
   let selector = query || {};
@@ -16,15 +21,13 @@ export default async function find(collection, query, option) {
   }
 
   const findCommand = {
-    collection: wrapperClient.collectionName || '',
-    client: wrapperClient,
+    collection: collection.name || '',
+    client: collection.redisClient,
     query: selector,
     option: newOption
   }
 
-  //exec query
-
-  // use findCommand to find
+  return await execFindCommand(findCommand);
 }
 
 function createNewOption(option) {
@@ -36,38 +39,54 @@ function createNewOption(option) {
 }
 
 async function execFindCommand(findCommand) {
-  if (!findCommand) {
-    throw new Error('findCommand is missing');
+  if (isEmpty(findCommand)) {
+    throw new Error('findCommand is empty');
   }
 
-  if (findCommand.query._id) {
-    return await findById();
+  // unpack findCommand data
+  const redisClient = findCommand.client;
+  const collectionName = findCommand.collection || '';
+  const query = findCommand.query || {};
+  const option = findCommand.option || {};
+
+  if (query._id && numField(query) === 1) {
+    const id = query._id;
+    return await findById(id, collectionName, redisClient, option);
   }
 
-  if (findCommand.query) {
-    
+  if (isEmpty(query)) {
+    return await findAll(collectionName, redisClient, option);
   }
 }
 
-async function findAll(client, collectionName) {
-  let listDocument = [];
-  const smembers = util.promisify(client.smembers).bind(client);
-  const get = util.promisify(client.get).bind(client);
-  const listKey = await smembers(collectionName);
-
-  for (let key of listKey) {
-    const stringDocument = await get(key);
-    const document = JSON.parse(stringDocument);
-    listDocument.push(document);
+async function findAll(collectionName, redisClient, option) {
+  const hscan = util.promisify(redisClient.hscan).bind(redisClient);
+  const hscanResult = await hscan(collectionName, 0);
+  const nextCursor = hscanResult[0] || 0;
+  const cursor = [];
+  const listRawDocument = hscanResult[1] || [];
+  for (let i = 1, length = listRawDocument.length; i < length; i += 2) {
+    cursor.push(listRawDocument[i]);
   }
-
-  return listDocument;
+  return cursor;
 }
 
-//Find document by it _id
-async function findById(client, id) {
-  const document = await client.get(id);
-  return document;
+// Find document by it _id
+async function findById(id, collectionName, redisClient, option) {
+  id = `${id}`;
+  if ( typeof id !== 'string') {
+    throw new Error('id must be a string');
+  }
+
+  const hscan = util.promisify(redisClient.hscan).bind(redisClient);
+  const hscanResult = await hscan(collectionName, 0, 'MATCH', id);
+  const nextCursor = hscanResult[0] || 0;
+  const cursor = [];
+  const listRawDocument = hscanResult[1] || [];
+  for (let i = 1, length = listRawDocument.length; i < length; i += 2) {
+    cursor.push(listRawDocument[i]);
+  }
+  return cursor;
 }
 
 

@@ -1,7 +1,8 @@
 import {
   connect,
   initialize
-} from './src/operations/wrapperClientOperations';
+} from './src/operations/WrapperClient';
+import Collection from './src/collection';
 
 export default class WrapperClient {
   constructor(mongoClient, redisClient) {
@@ -46,28 +47,15 @@ export default class WrapperClient {
     this.isConnected = false;
   }
 
-  //none-tested
-  createCollection(collectionName) {
-    if (typeof collectionName !== 'string') {
-      throw new Error('collectionName must be a string');
-    }
-
-    this.collection[collectionName] = new collection(collectionName);
-  }
-
   collection(collectionName) {
     if (typeof collectionName !== 'string') {
-      throw new Error('collectionName must be a string');
+      throw new Error('collectionName must be string');
     }
 
-    if (!collection[collectionName]) {
-      this.createCollection(collectionName);
-    }
-
-    return this.collection[collectionName];
+    return new Collection(collectionName, this.mongoClient, this.redisClient);
   }
 
-  //useless one don't know what it for yet
+  // clear database
   flush() {
     this.redisClient.on('error', (err) => {
       if (err) {

@@ -19,8 +19,8 @@ export default class Collection {
     this.redisClient = redisClient;
   }
  
-  find(query = {}, option = {}) {
-    return find(this, query, option);
+  async find(query, option) {
+    return await find(this, query, option);
   }
 
   findOne(query = {}, option = {}) {

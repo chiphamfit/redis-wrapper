@@ -9,7 +9,10 @@ const test = async () => {
   });
   const client = await new WrapperClient(mongoClient, redisClient);
   await client.initialize('demo');
-  // const cursor = await client.collection('demo').find(mongodb.ObjectID('5b57db6722f1f2a75c64f1eb'));
+  const id = mongodb.ObjectID('5b593fa93f80a135f0c25c78');
+  const result = await client.collection('car').find(id, {});
+  console.log(result);
+  // const cursor = await client.collection('demo').find();
   client.disconnect();
 }
 
