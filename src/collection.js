@@ -1,5 +1,5 @@
 import find from './operations/find';
-import { isEmpty } from './operations/subFunctions';
+import { isEmpty, isMongoClient, isRedisClient } from './operations/checker';
 
 export default class Collection {
   constructor(name, mongoClient, redisClient) {
@@ -7,11 +7,11 @@ export default class Collection {
       return new Error('collectionName must be a string');
     }
 
-    if (!mongoClient) {
+    if (!isMongoClient(mongoClient)) {
       return new Error('Invalid mongoClient input');
     }
 
-    if (!redisClient) {
+    if (!isRedisClient(redisClient)) {
       return new Error('Invalid redisClient input');
     }
 

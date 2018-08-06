@@ -2,7 +2,7 @@ import util from 'util';
 import {
   isEmpty,
   numField
-} from './subFunctions';
+} from './checker';
 // import Collection from '../collection';
 
 export default async function find(collection, query, option) {
@@ -32,10 +32,9 @@ export default async function find(collection, query, option) {
 
 function createNewOption(option) {
   let newOption = Object.assign({}, option);
-  newOption.limit = option.limit || undefined;
+  newOption.limit = option.limit || -1;
   newOption.sort = option.sort || undefined;
   newOption.skip = option.skip || 0;
-  newOption.findOne = option.findOne || false;
   return newOption;
 }
 
@@ -49,8 +48,9 @@ async function execFindCommand(findCommand) {
   const collectionName = findCommand.collection || '';
   const query = findCommand.query || {};
   const option = findCommand.option || {};
+  const numberQuery = Object.keys(query).length;
 
-  if (query._id && numField(query) === 1) {
+  if (query._id && numberQuery === 1) {
     const id = query._id;
     return await findById(id, collectionName, redisClient, option);
   }
