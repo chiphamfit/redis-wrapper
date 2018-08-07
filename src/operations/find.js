@@ -3,7 +3,8 @@ import { sortList } from './sort';
 import {
   isEmpty,
   isMongoClient,
-  isRedisClient
+  isRedisClient,
+  isValidString
 } from './checker';
 
 export default async function find(collection, query, option) {
@@ -48,14 +49,14 @@ async function execFindCommand(findCommand) {
   const query = findCommand.query || {};
   const option = findCommand.option || {};
 
-  if (query._id) {
-    const id = [query._id];
-    return await findById(id, collectionName, redisClient, option);
-  }
-
   if (isEmpty(query)) {
     return await findAll(collectionName, redisClient, option);
   }
+
+  if (query._id) {
+    return await findById(query._id, collectionName, redisClient);
+  }
+
 }
 
 async function findAll(collectionName, redisClient, option) {
@@ -64,7 +65,6 @@ async function findAll(collectionName, redisClient, option) {
   const skip = option.skip;
   const sort = option.sort;
 
-  // create 
   const hashScan = util.promisify(redisClient.hscan).bind(redisClient);
   let nextCursor = 0;
   let cursor = [];
@@ -81,43 +81,84 @@ async function findAll(collectionName, redisClient, option) {
     }
   } while (nextCursor != 0 && (cursor.length < limit + skip || limit === 0));
 
-  // sort here
-  cursor = sortList(cursor, sort);
-
   // apply option to cursor
   if (skip || limit) {
     cursor = cursor.slice(skip, limit + skip);
   }
 
+  cursor = sortList(cursor, sort);
   return cursor;
 }
 
 // Find document by it _id
-async function findById(listId, collectionName, redisClient, option) {
-  listId.forEach(id => {
-    if (typeof id !== 'string') {
-      id = JSON.stringify(id);
-    }
-  });
-
-  // unpack the option
-  const limit = option.limit || 0;
-  const sort = option.sort || undefined;
-  const skip = option.skip || 0;
+async function findById(id, collectionName, redisClient) {
+  id = `${id}`;
+  if (!isValidString(id)) {
+    throw new Error('id is invalid string');
+  }
 
   // find documents by scan it id in hash
-  let nextCursor = 0;
-  let query = [collectionName, nextCursor, 'MATCH', id];
-
-  if (limit > 0) {
-    query.push('COUNT', limit);
-  }
-  const hscan = util.promisify(redisClient.hscan).bind(redisClient);
-  const hscanResult = await hscan();
-  const cursor = [hscanResult[1][1]] || [];
-  if (option.limit >= 0) {
-    return cursor.slice(0, option.limit);
-  }
-
+  const hashGet = util.promisify(redisClient.hget).bind(redisClient);
+  const result = await hashGet(collectionName, id);
+  const cursor = [JSON.parse(result)] || [];
   return cursor;
-}
+} 
+
+// export function createKey(query, collectionName) {
+//   for (let field in query) {
+//     //ignore _id field
+//     if (field === '_id') {
+      
+//     }
+
+//     const value = query[field];
+
+//     // store Date value in milisecond in zset
+//     if(value.getTime) {
+//       const key = `${collectionName}:${field}:Date`;
+//       const time_ms = value.getTime();
+//       listKey.push(key + time_ms);
+//       continue;
+//     }
+
+//     // store Timestamp in milisecon in zset
+//     if (value._bsontype === 'Timestamp') {
+//       const key = `${collectionName}:${field}:Timestamp`;
+//       const time_ms = value.toNumber();
+//       listKey.push(key + time_ms);
+//       continue;
+//     }
+
+//     // if value of field is object, create field's subObject
+//     // then insert subObject to index
+//     if (typeof value === 'object') {
+//       let subObj = createChild(field, value);
+//       const newKey = createKey(subObj, collectionName);
+//       listKey.push(newKey);
+//       continue;
+//     }
+
+//     // store numberic values to zset
+//     if (isNaN(value)) {
+//       const key = `${collectionName}:${field}:${value}`;
+//       listKey.push(key);
+//       continue;
+//     }
+
+//     // store orther type values in set of string 
+//     const key = `${collectionName}:${field}`;
+//     listKey.push(key + value);
+//   }
+
+//   return listKey;
+// }
+
+// function createChild(prefix, object) {
+//   const child = {};
+//   for (let field in object) {
+//     let _field = `${prefix}:${field}`;
+//     child[_field] = object[field];
+//   }
+ 
+//   return child;
+// }
