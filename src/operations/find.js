@@ -1,4 +1,5 @@
 import util from 'util';
+import { sortList } from './sort';
 import {
   isEmpty,
   isMongoClient,
@@ -81,6 +82,7 @@ async function findAll(collectionName, redisClient, option) {
   } while (nextCursor != 0 && (cursor.length < limit + skip || limit === 0));
 
   // sort here
+  cursor = sortList(cursor, sort);
 
   // apply option to cursor
   if (skip || limit) {

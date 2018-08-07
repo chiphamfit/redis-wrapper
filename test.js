@@ -11,7 +11,7 @@ const test = async () => {
   await client.connect();
   await client.initialize('demo');
   const id = mongodb.ObjectID('5b57db5022f1f2a75c64f1ea');
-  const result = await client.collection('time').find({}, {});
+  const result = await client.collection('inventory').find({}, {sort: {item: 1, size: 1} });
   result.forEach(doc => {
     console.log(JSON.stringify(doc));
   })
