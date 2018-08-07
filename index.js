@@ -4,7 +4,7 @@ import {
   connectMongoClient,
   connectRedisClient,
   initialize
-} from './src/operations/WrapperClient';
+} from './src/operations/wrapperClient';
 import {
   isEmpty,
   isMongoClient,
@@ -16,11 +16,11 @@ import { isError } from './node_modules/util';
 export default class WrapperClient {
   constructor(mongoClient, redisClient) {
     if (!isMongoClient(mongoClient)) {
-      return new Error('Invalid input: mongoClient must be a mongoClient');
+      throw new TypeError('Invalid input: mongoClient must be a mongoClient');
     }
 
     if (!isRedisClient(redisClient)) {
-      return new Error('Invalid input: redisClient must be a redisClient');
+      throw new TypeError('Invalid input: redisClient must be a redisClient');
     }
 
     // ensure clients are not undefine
@@ -59,11 +59,11 @@ export default class WrapperClient {
 
   disconnect() {
     if (!isMongoClient(this.mongoClient)) {
-      throw new Error('Invalid input: mongoClient must be a MongoClient');
+      throw new TypeError('Invalid input: mongoClient must be a MongoClient');
     }
 
     if (!isRedisClient(this.redisClient)) {
-      throw new Error('Invalid input: redisClient must be a redisClient ');
+      throw new TypeError('Invalid input: redisClient must be a redisClient ');
     }
 
     if (this.isConnected) {
@@ -83,9 +83,9 @@ export default class WrapperClient {
 
   // clear database
   flush() {
-    this.redisClient.on('error', (err) => {
-      if (err) {
-        return err;
+    this.redisClient.on('error', (error) => {
+      if (error) {
+        throw error;
       }
     })
     this.redisClient.flushall();

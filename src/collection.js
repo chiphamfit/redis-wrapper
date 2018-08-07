@@ -4,15 +4,15 @@ import { isEmpty, isMongoClient, isRedisClient } from './operations/checker';
 export default class Collection {
   constructor(name, mongoClient, redisClient) {
     if (typeof name !== 'string') {
-      return new Error('collectionName must be a string');
+      throw new TypeError('collectionName must be a string');
     }
 
     if (!isMongoClient(mongoClient)) {
-      return new Error('Invalid mongoClient input');
+      throw new TypeError('Invalid mongoClient input');
     }
 
     if (!isRedisClient(redisClient)) {
-      return new Error('Invalid redisClient input');
+      throw new TypeError('Invalid redisClient input');
     }
 
     this.name = name || '';

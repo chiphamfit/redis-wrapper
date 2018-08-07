@@ -12,7 +12,7 @@ import {
 
 export async function connectMongoClient(mongoClient) {
   if (!isMongoClient(mongoClient)) {
-    return new Error('Invalid input: mongoClient must be a MongoClient');
+    throw new TypeError('Invalid input: mongoClient must be a MongoClient');
   }
 
   if (isEmpty(mongoClient)) {
@@ -24,12 +24,12 @@ export async function connectMongoClient(mongoClient) {
 
 export async function connectRedisClient(redisClient) {
   if (!isRedisClient(redisClient)) {
-    return new Error('Invalid input: redisClient must be a redisClient');
+    throw new TypeError('Invalid input: redisClient must be a redisClient');
   }
 
   redisClient = await (redisClient || redis.createClient());
-  redisClient.on('error', (err) => {
-    return err;
+  redisClient.on('error', (error) => {
+    throw error;
   });
 
   return redisClient;
@@ -37,12 +37,12 @@ export async function connectRedisClient(redisClient) {
 
 
 export async function initialize(mongoClient, redisClient) {
-  if (isEmpty(mongoClient)) {
-    return new Error('Invalid input: mongoClient is ' + typeof mongoClient);
+  if (!isMongoClient(mongoClient)) {
+    throw new TypeError('Invalid input: mongoClient is not a MongoClient');
   }
 
-  if (isEmpty(redisClient)) {
-    return new Error('Invalid input: redisClient is ' + typeof redisClient);
+  if (!isRedisClient(redisClient)) {
+    throw new TypeError('Invalid input: redisClient is not a redisClient');
   }
 
   const mongoDb = (await mongoClient).db();

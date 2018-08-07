@@ -3,19 +3,18 @@ import redis from 'redis';
 
 export function isEmpty(object) {
   // Check if object is a promise
-  if (object.then) {
+  if (object instanceof Promise) {
     return false;
   }
 
-  if (typeof object === 'object' && Object.keys(object).length === 0) {
-    return true;
+  if (Object.keys(object).length > 0) {
+    return false;
   }
 
-  return false;
+  return true;
 }
 
 export async function isMongoClient(client) {
-  // clone client
   client = await client;
   return client instanceof mongodb.MongoClient;
 }
