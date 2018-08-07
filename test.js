@@ -10,8 +10,8 @@ const test = async () => {
   });
   const client = new WrapperClient(mongoClient, redisClient);
   await client.connect();
-  // await client.initialize('demo');
-  const id = mongodb.ObjectID('5b601de9ef0a6ae26727382d');
+  await client.initialize('demo');
+  const id = mongodb.ObjectID('5b601de9ef0a6ee26727382a');
   const option = {
     limit: 3,
     skip: 2,
@@ -19,17 +19,10 @@ const test = async () => {
       item: -1
     }
   };
-  
+
   const result = await client.collection('inventory').findOne(id, option);
   console.log(result);
   client.disconnect();
-}
-
-const query = {
-  name: 'John',
-  sub: {
-    abc: 123
-  }
 }
 
 test();

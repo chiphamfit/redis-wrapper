@@ -1,30 +1,38 @@
 import find from './operations/find';
-import { isEmpty, isMongoClient, isRedisClient } from './operations/checker';
+import {
+  isEmpty,
+  isMongoClient,
+  isRedisClient
+} from './operations/checker';
 
 export default class Collection {
   constructor(name, mongoClient, redisClient) {
-    if (typeof name !== 'string') {
-      throw new TypeError('collectionName must be a string');
-    }
-
-    if (!isMongoClient(mongoClient)) {
-      throw new TypeError('Invalid mongoClient input');
-    }
-
-    if (!isRedisClient(redisClient)) {
-      throw new TypeError('Invalid redisClient input');
-    }
-
     this.name = name || '';
     this.mongoClient = mongoClient;
     this.redisClient = redisClient;
   }
 
   async find(query, option) {
+    if (typeof query !== 'object') {
+      throw new TypeError('query must be an object');
+    }
+
+    if (typeof option) {
+      throw new TypeError('option must be an object');
+    }
+
     return await find(this, query, option);
   }
 
   async findOne(query = {}, option = {}) {
+    if (typeof query !== 'object') {
+      throw new TypeError('query must be an object');
+    }
+
+    if (typeof option !== 'object') {
+      throw new TypeError('option must be an object');
+    }
+
     if (isEmpty(option)) {
       option = {
         limit: 1

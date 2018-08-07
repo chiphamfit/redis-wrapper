@@ -1,19 +1,13 @@
 import util from 'util';
-import { sortList } from './sort';
 import {
-  isEmpty,
-  isMongoClient,
-  isRedisClient,
-  isValidString
+  sortList
+} from './sort';
+import {
+  isEmpty
 } from './checker';
 
 export default async function find(collection, query, option) {
-  if (isEmpty(collection)) {
-    throw new Error('collection is empty');
-  }
-
   let selector = query || {};
-
   // Check special case where we are using an objectId
   if (selector._bsontype === 'ObjectID') {
     selector = {
@@ -26,7 +20,6 @@ export default async function find(collection, query, option) {
   newOption.limit = option.limit || 0;
   newOption.sort = option.sort || undefined;
   newOption.skip = option.skip || 0;
-
   // create find command for query data
   const findCommand = {
     collectionName: collection.name || '',
@@ -39,10 +32,6 @@ export default async function find(collection, query, option) {
 }
 
 async function execFindCommand(findCommand) {
-  if (isEmpty(findCommand)) {
-    throw new Error('findCommand is empty');
-  }
-
   // unpack findCommand data
   const redisClient = findCommand.client;
   const collectionName = findCommand.collectionName || '';
@@ -56,7 +45,6 @@ async function execFindCommand(findCommand) {
   if (query._id) {
     return await findById(query._id, collectionName, redisClient);
   }
-
 }
 
 async function findAll(collectionName, redisClient, option) {
@@ -92,23 +80,19 @@ async function findAll(collectionName, redisClient, option) {
 
 // Find document by it _id
 async function findById(id, collectionName, redisClient) {
-  id = `${id}`;
-  if (!isValidString(id)) {
-    throw new Error('id is invalid string');
-  }
-
   // find documents by scan it id in hash
+  id = `${id}`;
   const hashGet = util.promisify(redisClient.hget).bind(redisClient);
   const result = await hashGet(collectionName, id);
   const cursor = [JSON.parse(result)] || [];
   return cursor;
-} 
+}
 
 // export function createKey(query, collectionName) {
 //   for (let field in query) {
 //     //ignore _id field
 //     if (field === '_id') {
-      
+
 //     }
 
 //     const value = query[field];
@@ -159,6 +143,6 @@ async function findById(id, collectionName, redisClient) {
 //     let _field = `${prefix}:${field}`;
 //     child[_field] = object[field];
 //   }
- 
+
 //   return child;
 // }

@@ -11,7 +11,9 @@ import {
   isRedisClient,
   isValidString
 } from './src/operations/checker';
-import { isError } from './node_modules/util';
+import {
+  isError
+} from './node_modules/util';
 
 export default class WrapperClient {
   constructor(mongoClient, redisClient) {
@@ -30,18 +32,22 @@ export default class WrapperClient {
   }
 
   async connect() {
+    if (!isMongoClient(this.mongoClient)) {
+      throw new TypeError('Invalid input: mongoClient must be a MongoClient');
+    }
+
+    if (!isRedisClient(this.redisClient)) {
+      throw new TypeError('Invalid input: redisClient must be a redisClient');
+    }
+
     this.mongoClient = await connectMongoClient(this.mongoClient);
     this.redisClient = await connectRedisClient(this.redisClient);
 
-    if (isError(this.mongoClient)) {
-      throw this.mongoClient;
-    }
+    this.redisClient.on('error', (error) => {
+      throw error;
+    });
 
-    if (isError(this.redisClient)) {
-      throw this.redisClient;
-    }
-
-    this.isConnected =  true;
+    this.isConnected = true;
   }
 
   async initialize() {
@@ -76,6 +82,18 @@ export default class WrapperClient {
   collection(collectionName) {
     if (!isValidString(collectionName)) {
       throw new Error('collectionName must be a valid string');
+    }
+
+    if (!isMongoClient(this.mongoClient)) {
+      throw new TypeError('Invalid input: mongoClient must be a MongoClient');
+    }
+
+    if (!isRedisClient(this.redisClient)) {
+      throw new TypeError('Invalid input: redisClient must be a redisClient ');
+    }
+
+    if (!this.isConnected) {
+      this.connect();
     }
 
     return new Collection(collectionName, this.mongoClient, this.redisClient);

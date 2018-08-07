@@ -11,10 +11,6 @@ import {
 } from '../../config';
 
 export async function connectMongoClient(mongoClient) {
-  if (!isMongoClient(mongoClient)) {
-    throw new TypeError('Invalid input: mongoClient must be a MongoClient');
-  }
-
   if (isEmpty(mongoClient)) {
     return await mongodb.connect(mongo_url, mongo_parse_option);
   } else {
@@ -23,28 +19,12 @@ export async function connectMongoClient(mongoClient) {
 }
 
 export async function connectRedisClient(redisClient) {
-  if (!isRedisClient(redisClient)) {
-    throw new TypeError('Invalid input: redisClient must be a redisClient');
-  }
-
   redisClient = await (redisClient || redis.createClient());
-  redisClient.on('error', (error) => {
-    throw error;
-  });
-
   return redisClient;
 }
 
 
 export async function initialize(mongoClient, redisClient) {
-  if (!isMongoClient(mongoClient)) {
-    throw new TypeError('Invalid input: mongoClient is not a MongoClient');
-  }
-
-  if (!isRedisClient(redisClient)) {
-    throw new TypeError('Invalid input: redisClient is not a redisClient');
-  }
-
   const mongoDb = (await mongoClient).db();
   const listCollections = await mongoDb.listCollections().toArray();
 
