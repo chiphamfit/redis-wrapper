@@ -4,7 +4,7 @@ import {
   isEmpty,
   isMongoClient,
   isRedisClient
-} from './checker'
+} from '../util/checker'
 import {
   mongo_url,
   mongo_parse_option

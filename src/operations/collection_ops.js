@@ -1,10 +1,7 @@
 import util from 'util';
 import {
-  sortList
-} from './sort';
-import {
   isEmpty
-} from './checker';
+} from '../util/checker';
 
 export default async function find(collection, query, option) {
   let selector = query || {};
@@ -88,6 +85,25 @@ async function findById(id, collectionName, redisClient) {
   return cursor;
 }
 
+export function sortList(list, option) {
+  for (let field in option) {
+      list = list.sort(predicateBy(field, option[field]));
+  }
+
+  return list;
+}
+
+function predicateBy(property, mode) {
+  return (a, b) => {
+      if (a[property] > b[property]) {
+          return 1 * mode;
+      } else if (a[property] < b[property]) {
+          return -1 * mode;
+      }
+      
+      return 0;
+  }
+}
 // export function createKey(query, collectionName) {
 //   for (let field in query) {
 //     //ignore _id field

@@ -1,7 +1,6 @@
 import mongodb from 'mongodb';
 import redis from 'redis';
 import WrapperClient from './index';
-import {createKey} from './src/operations/find'
 
 const test = async () => {
   const redisClient = redis.createClient();
@@ -20,7 +19,7 @@ const test = async () => {
     }
   };
 
-  const result = await client.collection('inventory').findOne(id, option);
+  const result = await client.collection('demo').find({}, option);
   console.log(result);
   client.disconnect();
 }

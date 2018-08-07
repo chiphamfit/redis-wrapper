@@ -1,9 +1,9 @@
-import find from './operations/find';
+import find from './operations/collection_ops';
 import {
   isEmpty,
   isMongoClient,
   isRedisClient
-} from './operations/checker';
+} from './util/checker';
 
 export default class Collection {
   constructor(name, mongoClient, redisClient) {
@@ -17,7 +17,7 @@ export default class Collection {
       throw new TypeError('query must be an object');
     }
 
-    if (typeof option) {
+    if (typeof option !== 'object') {
       throw new TypeError('option must be an object');
     }
 
