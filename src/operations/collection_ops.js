@@ -31,9 +31,9 @@ export default async function find(collection, query, option) {
 async function execFindCommand(findCommand) {
   // unpack findCommand data
   const redisClient = findCommand.client;
-  const collectionName = findCommand.collectionName || '';
-  const query = findCommand.query || {};
-  const option = findCommand.option || {};
+  const collectionName = findCommand.collectionName;
+  const query = findCommand.query;
+  const option = findCommand.option;
 
   if (isEmpty(query)) {
     return await findAll(collectionName, redisClient, option);
