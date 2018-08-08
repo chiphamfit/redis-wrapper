@@ -19,12 +19,25 @@ const test = async () => {
     }
   };
 
-  const result = await client.collection('demo').find({}, option);
+  const result = await client.collection('inventory').findOne({}, option);
   console.log(result);
   client.disconnect();
 }
 
 test();
+const res = redis.createClient();
+res.zrangebyscore('inventory:instock:0:qty', `(${5}`, `${15}`, (err, rel) => {
+  console.log(rel);
+} );
+
+const a = {
+  $or: {
+    ab: 'abc'
+  },
+  e: 'dgf'
+}
+
+console.log(a.$or.name);
 // const mongoClient = mongodb.connect('mongodb://localhost:27017/demo', {
 //   useNewUrlParser: true
 // });

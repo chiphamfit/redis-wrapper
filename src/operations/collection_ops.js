@@ -57,8 +57,14 @@ async function execFindCommand(findCommand) {
   }
 
   let queryStack = [];
-  for (let object in query) {
-    // if ()
+  for (let field in query) {
+    const field = JSON.stringify(field);
+    if (field === '$or') {
+      query.push(`${field}:${query[field]}`)
+      continue;
+    }
+
+
   }
 }
 
@@ -103,7 +109,7 @@ async function findById(id, collectionName, redisClient) {
   return cursor;
 }
 
-export function sortList(list, option) {
+function sortList(list, option) {
   for (let field in option) {
     list = list.sort(predicateBy(field, option[field]));
   }
@@ -122,55 +128,85 @@ function predicateBy(property, mode) {
     return 0;
   }
 }
-// export function createKey(query, collectionName) {
-//   for (let field in query) {
-//     //ignore _id field
-//     if (field === '_id') {
 
-//     }
+async function getId(redisClient, field, value, collectionName) {
+  let listId = [];
+  for (let field in query) {
+    if (query._id) {
+      list.push(query._id);
+      continue;
+    }
 
-//     const value = query[field];
+    const value = query[field];
 
-//     // store Date value in milisecond in zset
-//     if(value.getTime) {
-//       const key = `${collectionName}:${field}:Date`;
-//       const time_ms = value.getTime();
-//       listKey.push(key + time_ms);
-//       continue;
-//     }
+    // store Date value in milisecond in zset
+    if (value.getTime) {
+      const key = `${collectionName}:${field}:Date`;
+      const time_ms = value.getTime();
+      const searchByScore = util.promisify(redisClient.zrangebyscore).bind(redisClient);
+      const scanResult = await searchByScore(key, `${time_ms}`, `${time_ms}`);
+      listId = listId.concat(scanResult);
+      continue;
+    }
 
-//     // store Timestamp in milisecon in zset
-//     if (value._bsontype === 'Timestamp') {
-//       const key = `${collectionName}:${field}:Timestamp`;
-//       const time_ms = value.toNumber();
-//       listKey.push(key + time_ms);
-//       continue;
-//     }
+    // store Timestamp in milisecon in zset
+    if (value._bsontype === 'Timestamp') {
+      const key = `${collectionName}:${field}:Timestamp`;
+      const time_ms = value.toNumber();
+      redisClient.zadd(key, time_ms, id);
+      continue;
+    }
 
-//     // if value of field is object, create field's subObject
-//     // then insert subObject to index
-//     if (typeof value === 'object') {
-//       let subObj = createChild(field, value);
-//       const newKey = createKey(subObj, collectionName);
-//       listKey.push(newKey);
-//       continue;
-//     }
+    // if value of field is object, create field's subObject
+    // then insert subObject to index
+    if (typeof value === 'object') {
+      let subObj = createChild(field, id, value);
+      insertIndexs(redisClient, collectionName, subObj);
+      continue;
+    }
 
-//     // store numberic values to zset
-//     if (isNaN(value)) {
-//       const key = `${collectionName}:${field}:${value}`;
-//       listKey.push(key);
-//       continue;
-//     }
+    // store numberic values to zset
+    if (isNaN(value)) {
+      const key = `${collectionName}:${field}:${value}`;
+      redisClient.sadd(key, id);
+      continue;
+    }
 
-//     // store orther type values in set of string 
-//     const key = `${collectionName}:${field}`;
-//     listKey.push(key + value);
-//   }
+    // store orther type values in set of string 
+    const key = `${collectionName}:${field}`;
+    redisClient.zadd(key, value, id);
+  }
+}
 
-//   return listKey;
-// }
+function findDate(redisClient, key, condition) {
+  const key = `${collectionName}.${field}.@Date`;
+  if (condition == '$or') {
+    const time_ms = value.getTime();
+    redisClient.zadd(key, time_ms, id);
+  }
+}
 
+function Inter(list1, list2) {
+  let result = [];
+  list1.forEach(id1 => {
+    list2.forEach(id2 => {
+      if (id1 == id2) {
+        result.push(id);
+      }
+    });
+  });
+}
+
+function Union(list1, list2) {
+  let joinedList = list1.concat(list2);
+  let result = [];
+  // make list unique
+  joinedList.forEach(id => {
+    if (result.indexOf(id) < 0) {
+      result.push(id);
+    }
+  });
+}
 // function createChild(prefix, object) {
 //   const child = {};
 //   for (let field in object) {

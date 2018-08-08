@@ -56,15 +56,13 @@ function insertIndexs(redisClient, collectionName, document) {
 
     // store Date value in milisecond in zset
     if(value.getTime) {
-      const key = `${collectionName}:${field}:Date`;
-      const time_ms = value.getTime();
-      redisClient.zadd(key, time_ms, id);
+     
       continue;
     }
 
     // store Timestamp in milisecon in zset
     if (value._bsontype === 'Timestamp') {
-      const key = `${collectionName}:${field}:Timestamp`;
+      const key = `${collectionName}.${field}.@Timestamp`;
       const time_ms = value.toNumber();
       redisClient.zadd(key, time_ms, id);
       continue;
@@ -80,13 +78,13 @@ function insertIndexs(redisClient, collectionName, document) {
 
     // store numberic values to zset
     if (isNaN(value)) {
-      const key = `${collectionName}:${field}:${value}`;
+      const key = `${collectionName}.${field}:${value}`;
       redisClient.sadd(key, id);
       continue;
     }
 
     // store orther type values in set of string 
-    const key = `${collectionName}:${field}`;
+    const key = `${collectionName}.${field}`;
     redisClient.zadd(key, value, id);
   }
 }
@@ -94,7 +92,7 @@ function insertIndexs(redisClient, collectionName, document) {
 function createChild(prefix, id, object) {
   const child = {};
   for (let field in object) {
-    let _field = `${prefix}:${field}`;
+    let _field = `${prefix}.${field}`;
     child[_field] = object[field];
   }
   if (!child._id) {
