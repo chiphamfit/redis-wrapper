@@ -2,3 +2,5 @@
 node_modules
 # Setting files
 .eslintrc.json
+# Build
+dist

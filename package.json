@@ -2,10 +2,11 @@
   "name": "redis-wrapper",
   "version": "0.1.0",
   "description": "Use redis as mongodb cache",
-  "main": "app.js",
+  "main": "index.js",
   "scripts": {
     "test": "nodemon --exec babel-node --presets env test.js",
-    "start": "nodemon --exec babel-node --presets env"
+    "start": "nodemon --exec babel-node --presets env",
+    "build": "babel-node src -d dist --source-maps"
   },
   "presets": [
     "env"
