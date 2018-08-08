@@ -23,7 +23,6 @@ export async function connectRedisClient(redisClient) {
   return redisClient;
 }
 
-
 export async function initialize(mongoClient, redisClient) {
   const mongoDb = (await mongoClient).db();
   const listCollections = await mongoDb.listCollections().toArray();
@@ -55,16 +54,25 @@ function insertIndexs(redisClient, collectionName, document) {
     const value = document[field];
 
     // store Date value in milisecond in zset
-    if(value.getTime) {
-     
+    if (value.getTime) {
+      const key = `${collectionName}.${field}`;
+      const time_ms = value.getTime();
+      redisClient.zadd(key, time_ms, id);
       continue;
     }
 
     // store Timestamp in milisecon in zset
     if (value._bsontype === 'Timestamp') {
-      const key = `${collectionName}.${field}.@Timestamp`;
+      const key = `${collectionName}.${field}`;
       const time_ms = value.toNumber();
       redisClient.zadd(key, time_ms, id);
+      continue;
+    }
+
+    // store numberic values to zset
+    if (!isNaN(value)) {
+      const key = `${collectionName}.${field}`;
+      redisClient.zadd(key, value, id);
       continue;
     }
 
@@ -76,16 +84,9 @@ function insertIndexs(redisClient, collectionName, document) {
       continue;
     }
 
-    // store numberic values to zset
-    if (isNaN(value)) {
-      const key = `${collectionName}.${field}:${value}`;
-      redisClient.sadd(key, id);
-      continue;
-    }
-
-    // store orther type values in set of string 
-    const key = `${collectionName}.${field}`;
-    redisClient.zadd(key, value, id);
+    // store orther type values in set
+    const key = `${collectionName}.${field}:${value}`;
+    redisClient.sadd(key, id);
   }
 }
 

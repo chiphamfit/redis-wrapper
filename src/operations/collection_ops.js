@@ -179,7 +179,7 @@ async function getId(redisClient, field, value, collectionName) {
 }
 
 function findDate(redisClient, key, condition) {
-  const key = `${collectionName}.${field}.@Date`;
+  key = `${collectionName}.${field}`;
   if (condition == '$or') {
     const time_ms = value.getTime();
     redisClient.zadd(key, time_ms, id);
