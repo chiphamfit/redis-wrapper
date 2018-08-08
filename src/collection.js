@@ -1,9 +1,12 @@
-import find from './operations/collection_ops';
+import {
+  find,
+  findOne
+} from './operations/collection_ops';
 import {
   isEmpty,
   isMongoClient,
   isRedisClient
-} from './util/checker';
+} from './util/check';
 
 export default class Collection {
   constructor(name, mongoClient, redisClient) {
@@ -33,19 +36,7 @@ export default class Collection {
       throw new TypeError('option must be an object');
     }
 
-    if (isEmpty(option)) {
-      option = {
-        limit: 1
-      }
-    }
-
-    option.limit = 1;
-    const cursor = await find(this, query, option);
-    if (isEmpty(cursor)) {
-      return null;
-    }
-
-    return cursor[0];
+    return await findOne(this, query, option);
   }
 
   update() {

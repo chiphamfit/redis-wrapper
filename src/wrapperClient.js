@@ -5,11 +5,10 @@ import {
   initialize
 } from './operations/wrapperClient_ops';
 import {
-  isEmpty,
   isMongoClient,
   isRedisClient,
   isValidString
-} from './util/checker';
+} from './util/check';
 
 export default class WrapperClient {
   constructor(mongoClient, redisClient) {

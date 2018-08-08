@@ -1,9 +1,9 @@
 import util from 'util';
 import {
   isEmpty
-} from '../util/checker';
+} from '../util/check';
 
-export default async function find(collection, query, option) {
+export async function find(collection, query, option) {
   let selector = query || {};
   // Check special case where we are using an objectId
   if (selector._bsontype === 'ObjectID') {
@@ -28,6 +28,19 @@ export default async function find(collection, query, option) {
   return await execFindCommand(findCommand);
 }
 
+export async function findOne(collection, query, option) {
+  if (isEmpty(option)) {
+    option = {
+      limit: 1
+    }
+  } else {
+    option.limit = 1;
+  }
+
+  const cursor = await find(collection, query, option);
+  return cursor[0] || null;
+}
+
 async function execFindCommand(findCommand) {
   // unpack findCommand data
   const redisClient = findCommand.client;
@@ -41,6 +54,11 @@ async function execFindCommand(findCommand) {
 
   if (query._id) {
     return await findById(query._id, collectionName, redisClient);
+  }
+
+  let queryStack = [];
+  for (let object in query) {
+    // if ()
   }
 }
 
@@ -56,7 +74,7 @@ async function findAll(collectionName, redisClient, option) {
 
   // scaning documents in collection
   do {
-    const scanResult = await hashScan(collectionName, nextCursor, 'COUNT', limit || 10);
+    const scanResult = await hashScan(collectionName, nextCursor, 'COUNT', skip + limit || 10);
     nextCursor = scanResult[0];
     const listDocument = scanResult[1];
 
@@ -87,7 +105,7 @@ async function findById(id, collectionName, redisClient) {
 
 export function sortList(list, option) {
   for (let field in option) {
-      list = list.sort(predicateBy(field, option[field]));
+    list = list.sort(predicateBy(field, option[field]));
   }
 
   return list;
@@ -95,13 +113,13 @@ export function sortList(list, option) {
 
 function predicateBy(property, mode) {
   return (a, b) => {
-      if (a[property] > b[property]) {
-          return 1 * mode;
-      } else if (a[property] < b[property]) {
-          return -1 * mode;
-      }
-      
-      return 0;
+    if (a[property] > b[property]) {
+      return 1 * mode;
+    } else if (a[property] < b[property]) {
+      return -1 * mode;
+    }
+
+    return 0;
   }
 }
 // export function createKey(query, collectionName) {
