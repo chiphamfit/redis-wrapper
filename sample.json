@@ -4,8 +4,8 @@
         "first" : "John",
         "last" : "Backus"
     },
-    "birth" : ISODate("1924-12-03T05:00:00Z"),
-    "death" : ISODate("2007-03-17T04:00:00Z"),
+    "birth" : "1924-12-03T05:00:00Z",
+    "death" : "2007-03-17T04:00:00Z",
     "contribs" : [
         "Fortran",
         "ALGOL",

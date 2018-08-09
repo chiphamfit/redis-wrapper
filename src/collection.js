@@ -16,6 +16,9 @@ export default class Collection {
   }
 
   async find(query, option) {
+    query = query === undefined ? {} : query;
+    option = option === undefined ? {} : option;
+    
     if (typeof query !== 'object') {
       throw new TypeError('query must be an object');
     }

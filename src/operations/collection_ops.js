@@ -3,13 +3,19 @@ import {
   isEmpty
 } from '../util/check';
 
+// consistance
+const DEFAULT_COUNT = 10;
+const INF = 'inf';
+const NEGATIVE_INF = '-inf';
+
 export async function find(collection, query, option) {
   let selector = query || {};
   // Check special case where we are using an objectId
   if (selector._bsontype === 'ObjectID') {
     selector = {
       _id: selector
-    };
+    }
+    return await findById(selector, collectionName, redisClient);
   }
 
   // create new option object
@@ -17,15 +23,61 @@ export async function find(collection, query, option) {
   newOption.limit = option.limit || 0;
   newOption.sort = option.sort || undefined;
   newOption.skip = option.skip || 0;
+
+  if (isEmpty(selector)) {
+    return await findAll(collection.name, collection.redisClient, newOption);
+  }
+
   // create find command for query data
   const findCommand = {
-    collectionName: collection.name || '',
-    client: collection.redisClient,
+    collection: collection,
     query: selector,
     option: newOption
   }
 
   return await execFindCommand(findCommand);
+}
+
+// Find query = {_id: {$in: [//id array]}} || {_id: ObjectId(4556465aeb1564)}
+async function findById(query, collectionName, redisClient) {
+  // find documents by scan it id in hash
+  const hashGet = util.promisify(redisClient.hget).bind(redisClient);
+
+  if (!query._id) {
+    throw new Error('Query not contain _id field');
+  }
+
+  const id = `${query._id}`;
+
+  if (typeof id !== 'object') {
+    let document = await hashGet(collectionName, id);
+    if (document) {
+      return [JSON.parse(document)];
+    }
+
+    return [];
+  }
+
+  // find all id in array
+  if (id.$in ) {
+    listId = value['$in'];
+    listId.forEach(id => {
+      // const document = await findById(id, collectionName, redisClient);
+      if (document) {
+        queryResult.push(document);
+      }
+    });
+
+    return queryResult;
+  }
+}
+
+function sortList(list, option) {
+  for (let field in option) {
+    list = list.sort(predicateBy(field, option[field]));
+  }
+
+  return list;
 }
 
 export async function findOne(collection, query, option) {
@@ -41,39 +93,12 @@ export async function findOne(collection, query, option) {
   return cursor[0] || null;
 }
 
-async function execFindCommand(findCommand) {
-  // unpack findCommand data
-  const redisClient = findCommand.client;
-  const collectionName = findCommand.collectionName;
-  const query = findCommand.query;
-  const option = findCommand.option;
-
-  if (isEmpty(query)) {
-    return await findAll(collectionName, redisClient, option);
-  }
-
-  if (query._id) {
-    return await findById(query._id, collectionName, redisClient);
-  }
-
-  let queryStack = [];
-  for (let field in query) {
-    const condion = {
-      _query: field,
-      _value: query[field],
-
-    }
-
-
-  }
-}
-
 async function findAll(collectionName, redisClient, option) {
   // unpack option
   const limit = option.limit;
   const skip = option.skip;
   const sort = option.sort;
-  const COUNT_NUMBER = skip + limit || 10;
+  const count = skip + limit || DEFAULT_COUNT;
 
   const hashScan = util.promisify(redisClient.hscan).bind(redisClient);
   let nextCursor = 0;
@@ -81,7 +106,7 @@ async function findAll(collectionName, redisClient, option) {
 
   // scaning documents in collection
   do {
-    const scanResult = await hashScan(collectionName, nextCursor, 'COUNT', COUNT_NUMBER);
+    const scanResult = await hashScan(collectionName, nextCursor, 'COUNT', count);
     nextCursor = scanResult[0];
     const listDocument = scanResult[1];
 
@@ -90,32 +115,131 @@ async function findAll(collectionName, redisClient, option) {
       cursor.push(document);
     }
 
-  } while (nextCursor != 0 && (cursor.length < COUNT_NUMBER || limit === 0));
+  } while (nextCursor != 0 && (cursor.length < count || limit === 0));
 
   // apply option to cursor
   if (skip || limit) {
-    cursor = cursor.slice(skip, COUNT_NUMBER + skip);
+    cursor = cursor.slice(skip, count + skip);
   }
+
   cursor = sortList(cursor, sort);
   return cursor;
 }
 
-// Find document by it _id
-async function findById(id, collectionName, redisClient) {
-  // find documents by scan it id in hash
-  id = `${id}`;
-  const hashGet = util.promisify(redisClient.hget).bind(redisClient);
-  const result = await hashGet(collectionName, id);
-  const cursor = [JSON.parse(result)] || [];
+async function execFindCommand(findCommand) {
+  // unpack findCommand data
+  let cursor = [];
+  const redisClient = findCommand.collection.redisClient;
+  const mongoClient = findCommand.collection.mongoClient;
+  const client = {
+    redisClient: redisClient,
+    mongoClient: mongoClient
+  }
+  const collectionName = findCommand.collection.name;
+  const query = findCommand.query;
+  const option = findCommand.option;
+
+  // dianostic the query
+  for (let field in query) {
+    if (field == '$or') {
+      const orArray = query[field];
+      orCursor = await findOr(orArray, collectionName, client);
+      cursor = cursor.concat(orCursor);
+    }
+
+    if (field == '$and') {
+      const andArray = query[field];
+      const andCursor = await findAnd(andArray, collectionName, client);
+      cursor = cursor.concat(andCursor);
+    }
+
+    cursor = await findAnd(query, collectionName, client);
+  }
+  // apply option
+  // return
+  return [];
+}
+
+function findOr(orArray, collectionName, client) {
+  let cursor = [];
+  orArray.forEach(query => {
+    const key = Object.keys(query);
+  });
+  // if (key !== '$or') {
+
+  // }
+
+  // if (key) {}
+  // for (field in query) {
+  //   if (field == '$or') {
+  //     const orArray = query[field];
+  //     orCursor = await findOr(orArray, collectionName, client);
+  //     cursor = cursor.push(orCursor);
+  //   }
+
+  //   if (field == '$and') {
+  //     const andArray = query[field];
+  //     const andCursor = await findAnd(andArray, collectionName, client);
+  //     cursor = cursor.push(andCursor);
+  //   }
+
+  // cursor = await findByQuery(query, collectionName, client);
+  // }
   return cursor;
 }
 
-function sortList(list, option) {
-  for (let field in option) {
-    list = list.sort(predicateBy(field, option[field]));
+function findAnd(andArray, collectionName, client) {
+
+}
+
+// Query must be a single object
+export async function findByQuery(query, collectionName, redisClient) {
+  const queryResult = [];
+  let stack = [];
+
+  // checking
+  const queryKeys = Object.keys(query);
+  if (queryKeys.length !== 1) {
+    throw new Error('SyntaxError: Wrong number of condition in query: ' + JSON.stringify(query));
   }
 
-  return list;
+  let key = queryKeys[0];
+  const value = query[key];
+  let searchKey = `${collectionName}.${key}`;
+
+  if (key === '_id') {
+
+  }
+
+  if (value.getTime) {
+    const key = `${collectionName}.${field}`;
+    const time_ms = value.getTime();
+    redisClient.zadd(key, time_ms, id);
+  }
+
+  // store Timestamp in milisecon in zset
+  if (value._bsontype === 'Timestamp') {
+    const key = `${collectionName}.${field}`;
+    const time_ms = value.toNumber();
+    redisClient.zadd(key, time_ms, id);
+  }
+
+  // store numberic values to zset
+  if (!isNaN(value)) {
+    const key = `${collectionName}.${field}`;
+    redisClient.zadd(key, value, id);
+  }
+
+  // if value of field is object, create field's subObject
+  // then insert subObject to index
+  if (typeof value === 'object') {
+    let subObj = createChild(field, id, value);
+    insertIndexs(redisClient, collectionName, subObj);
+  }
+
+  // store orther type values in set
+  key = `${collectionName}.${field}:${value}`;
+  redisClient.sadd(key, id);
 }
 
 function predicateBy(property, mode) {
@@ -128,89 +252,4 @@ function predicateBy(property, mode) {
 
     return 0;
   }
-}
-
-async function getId(redisClient, field, value, collectionName) {
-  let listId = [];
-  for (let field in query) {
-    if (query._id) {
-      list.push(query._id);
-      continue;
-    }
-
-    const value = query[field];
-
-    // store Date value in milisecond in zset
-    if (value.getTime) {
-      const key = `${collectionName}:${field}:Date`;
-      const time_ms = value.getTime();
-      const searchByScore = util.promisify(redisClient.zrangebyscore).bind(redisClient);
-      const scanResult = await searchByScore(key, `${time_ms}`, `${time_ms}`);
-      listId = listId.concat(scanResult);
-      continue;
-    }
-
-    // store Timestamp in milisecon in zset
-    if (value._bsontype === 'Timestamp') {
-      const key = `${collectionName}:${field}:Timestamp`;
-      const time_ms = value.toNumber();
-      redisClient.zadd(key, time_ms, id);
-      continue;
-    }
-
-    // if value of field is object, create field's subObject
-    // then insert subObject to index
-    if (typeof value === 'object') {
-      let subObj = createChild(field, id, value);
-      insertIndexs(redisClient, collectionName, subObj);
-      continue;
-    }
-
-    // store numberic values to zset
-    if (isNaN(value)) {
-      const key = `${collectionName}:${field}:${value}`;
-      redisClient.sadd(key, id);
-      continue;
-    }
-
-    // store orther type values in set of string 
-    const key = `${collectionName}:${field}`;
-    redisClient.zadd(key, value, id);
-  }
-}
-
-function findDate(redisClient, key, condition) {
-  key = `${collectionName}.${field}`;
-  if (condition == '$or') {
-    const time_ms = value.getTime();
-    redisClient.zadd(key, time_ms, id);
-  }
-}
-
-function Inter(a, b) {
-  let result = [];
-  a.forEach(a_element => {
-    b.forEach(b_element => {
-      if (a_element == b_element) {
-        result.push(b_element);
-      }
-    });
-  });
-
-  return result;
-}
-
-function Union(a, b) {
-  let joinedList = a.concat(b);
-  let result = [];
-
-  // if element hasn't exist
-  // add it into result
-  joinedList.forEach(element => {
-    if (result.indexOf(element) < 0) {
-      result.push(element);
-    }
-  });
-
-  return result;
 }
