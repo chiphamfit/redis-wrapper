@@ -58,10 +58,10 @@ async function execFindCommand(findCommand) {
 
   let queryStack = [];
   for (let field in query) {
-    const field = JSON.stringify(field);
-    if (field === '$or') {
-      query.push(`${field}:${query[field]}`)
-      continue;
+    const condion = {
+      _query: field,
+      _value: query[field],
+
     }
 
 
@@ -73,6 +73,7 @@ async function findAll(collectionName, redisClient, option) {
   const limit = option.limit;
   const skip = option.skip;
   const sort = option.sort;
+  const COUNT_NUMBER = skip + limit || 10;
 
   const hashScan = util.promisify(redisClient.hscan).bind(redisClient);
   let nextCursor = 0;
@@ -80,7 +81,7 @@ async function findAll(collectionName, redisClient, option) {
 
   // scaning documents in collection
   do {
-    const scanResult = await hashScan(collectionName, nextCursor, 'COUNT', skip + limit || 10);
+    const scanResult = await hashScan(collectionName, nextCursor, 'COUNT', COUNT_NUMBER);
     nextCursor = scanResult[0];
     const listDocument = scanResult[1];
 
@@ -88,13 +89,13 @@ async function findAll(collectionName, redisClient, option) {
       const document = JSON.parse(listDocument[i]);
       cursor.push(document);
     }
-  } while (nextCursor != 0 && (cursor.length < limit + skip || limit === 0));
+
+  } while (nextCursor != 0 && (cursor.length < COUNT_NUMBER || limit === 0));
 
   // apply option to cursor
   if (skip || limit) {
-    cursor = cursor.slice(skip, limit + skip);
+    cursor = cursor.slice(skip, COUNT_NUMBER + skip);
   }
-
   cursor = sortList(cursor, sort);
   return cursor;
 }
@@ -186,33 +187,30 @@ function findDate(redisClient, key, condition) {
   }
 }
 
-function Inter(list1, list2) {
+function Inter(a, b) {
   let result = [];
-  list1.forEach(id1 => {
-    list2.forEach(id2 => {
-      if (id1 == id2) {
-        result.push(id);
+  a.forEach(a_element => {
+    b.forEach(b_element => {
+      if (a_element == b_element) {
+        result.push(b_element);
       }
     });
   });
+
+  return result;
 }
 
-function Union(list1, list2) {
-  let joinedList = list1.concat(list2);
+function Union(a, b) {
+  let joinedList = a.concat(b);
   let result = [];
-  // make list unique
-  joinedList.forEach(id => {
-    if (result.indexOf(id) < 0) {
-      result.push(id);
+
+  // if element hasn't exist
+  // add it into result
+  joinedList.forEach(element => {
+    if (result.indexOf(element) < 0) {
+      result.push(element);
     }
   });
-}
-// function createChild(prefix, object) {
-//   const child = {};
-//   for (let field in object) {
-//     let _field = `${prefix}:${field}`;
-//     child[_field] = object[field];
-//   }
 
-//   return child;
-// }
+  return result;
+}
