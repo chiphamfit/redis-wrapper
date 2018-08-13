@@ -18,13 +18,5 @@ const test = async () => {
       item: -1
     }
   };
-  const query = {
-    'name.first': 'John',
-    $or: {}
-  }
-  const result = await client.collection('inventory').find({}, option);
-  console.log(result);
-  client.disconnect();
 }
-
 test();
