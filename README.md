@@ -1,25 +1,22 @@
-# redis-wrapper
+# Redis Wrapper
 
-Wrap mongo database with redis
+A wrapper use redis to cache mongo database.
+
+## Introdution
 
 ## Dependencies
 
-This module require these packages *redis*, *mongodb*, *babel*, *util*.
+This module require these packages *redis*, *mongodb*, *util*
 
-<!--
-```npm install util redis mongodb nodemon --save```
-```npm install babel-cli babel-preset-env --save-dev```
-Add these to `package.json` file
- ```javascript
-"scripts": {
-    "start": "nodemon --exec babel-node --presets env index.js"
-  },
-"presets":
-    ["env"]
-```
--->
+## How to use
 
-## Data struct
+### Init
+
+### Connect
+
+### Query
+
+<!-- ## Data struct
 
 Strore mongo's documents in string and use inverted index to store it 'field:value' for query
 
@@ -53,4 +50,4 @@ Inverted index stored in set as 2 type set and sorted set (zset)
             {
                 key: field:value
                 value: [id,..]
-            }
+            } -->
