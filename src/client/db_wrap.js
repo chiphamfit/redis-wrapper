@@ -1,9 +1,9 @@
 const Db = require('mongodb').Db;
-const CollectionWrapper = require('./collection');
+const Collection = require('./collection');
 
-class DbWrapper {
-  constructor(db, redis) {
-    this.db = db;
+class DbWrap extends Db {
+  constructor(dbName, topology, finalOptions, redis) {
+    super(dbName, topology, finalOptions);
     this.redis = redis;
   }
 
@@ -15,7 +15,7 @@ class DbWrapper {
       throw error;
     }
 
-    return new CollectionWrapper(collection, this.redis);
+    return new CollectionWrap(collection, this.redis);
   }
 
   async collections() {
@@ -39,4 +39,4 @@ class DbWrapper {
   }
 }
 
-module.exports = DbWrapper;
+module.exports = DbWrap;

@@ -1,3 +1,4 @@
+const redis = require('redis');
 const promisify = require('util').promisify;
 
 // Constants
@@ -12,11 +13,17 @@ const SET = 'set';
 const ZSET = 'zset';
 const STRING = 'string';
 
-class RedisWrapper {
-  constructor(redisClient) {
-    this.client = redisClient;
+class RedisWrap extends redis.createClient {
+  constructor({
+      expire = NO_EXPIRE,
+      options
+    }) {
+    super(options);
+    if (!isNaN(expire) || expire < 0) {
+      throw new TypeError('expire time must be a positive number');
+    }
+    this.expire = expire;
   }
-
   async search({
     key = '',
     type = STRING,
@@ -35,17 +42,17 @@ class RedisWrapper {
       query = query.concat('MATCH', match);
     }
 
-    let scanType = this.client.scan;
+    let scanType = super.scan;
 
     switch (type) {
       case HASH:
-        scanType = this.client.hscan;
+        scanType = super.hscan;
         break;
       case SET:
-        scanType = this.client.sscan;
+        scanType = super.sscan;
         break;
       case ZSET:
-        scanType = this.client.zscan;
+        scanType = super.zscan;
         break;
       default:
         if (type !== STRING) {
@@ -54,7 +61,7 @@ class RedisWrapper {
         break;
     }
 
-    const cacheScan = promisify(scanType).bind(this.client);
+    const cacheScan = promisify(scanType);
 
     // scanning in redis database
     do {
@@ -79,42 +86,47 @@ class RedisWrapper {
   }) {
     if (type === HASH) {
       for (let field in data) {
-        this.client.hset(key, field, data[field]);
+        super.hset(key, field, data[field]);
       }
     }
 
     if (type === SET) {
       const setMembers = [key].concat(data);
-      this.client.sadd(setMembers);
+      super.sadd(setMembers);
     }
 
     if (type === ZSET) {
       for (let field in data) {
-        this.client.zadd(key, field, data[field]);
+        super.zadd(key, field, data[field]);
       }
     }
 
     if (type === ZSET) {
       for (let field in data) {
-        this.client.zadd(key, field, data[field]);
+        super.zadd(key, field, data[field]);
       }
     }
 
     if (type === STRING) {
-      this.client.set(key, data);
+      super.set(key, data);
     }
 
     // Set expire time for cache
+    expire = expire || this.expire;
+
     if (expire !== NO_EXPIRE) {
-      this.client.expire(key, expire);
+      super.expire(key, expire);
     }
   }
 
   flush() {
-    this.client.flushdb((err) => {
+    super.flushdb((err) => {
       throw err;
     });
   }
 }
 
-module.exports = RedisWrapper;
+module.exports = {
+  RedisWrap,
+  NO_EXPIRE
+};

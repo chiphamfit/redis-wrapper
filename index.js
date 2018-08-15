@@ -1,3 +1,3 @@
-import WrapperClient from './src/wrapper/wrapper';
+const Wrapper =  require('./scr/wrapper');
 
-export default WrapperClient;
+export default Wrapper;

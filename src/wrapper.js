@@ -1,6 +1,6 @@
 // Dependences
-const LazyClient = require('./lazy/lazyClient');
-const FullClient = require('./full/fullClient');
+const LazyClient = require('../lazy/lazyClient');
+const FullClient = require('../full/fullClient');
 const MongoClient = require('mongodb').MongoClient;
 const RedisClient = require('redis').RedisClient;
 
@@ -27,8 +27,8 @@ class Wrapper {
       throw new TypeError('expire time must be a positive number');
     }
 
-    this.redis = redis;
-    this.mongo = mongo;
+    this.redis = new RedisWrapper(redis);
+    this.mongo = new MongoWrapper(mongo);
     this.mode = mode;
     this.expire = expire;
   }
