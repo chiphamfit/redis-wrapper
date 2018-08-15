@@ -1,8 +1,7 @@
 // Dependences
-const LazyClient = require('../lazy/lazyClient');
-const FullClient = require('../full/fullClient');
 const MongoClient = require('mongodb').MongoClient;
 const RedisClient = require('redis').RedisClient;
+const RedisWrapper = require('../redis_wrap');
 
 // Constants
 const LAZY_MODE = 'lazy';
@@ -27,18 +26,23 @@ class Wrapper {
       throw new TypeError('expire time must be a positive number');
     }
 
-    this.redis = new RedisWrapper(redis);
-    this.mongo = new MongoWrapper(mongo);
+    this.mongo = mongo;
+    this.redisWrapper = new RedisWrapper(redis);
     this.mode = mode;
     this.expire = expire;
   }
 
-  createClient() {
-    if (this.mode === LAZY_MODE) {
-      return new LazyClient(this.mongo, this.redis, this.expire);
+  db(dbName, options) {
+    if (!this.mongo.isConnected()) {
+      throw new Error('mongo client is not connected');
     }
 
-    return new FullClient(this.mongo, this.redis);
+    const db = this.mongo.db(dbName, options);
+    // create new db and return
+  }
+
+  cleanCache() {
+    this.redisWrapper.cleanCache();
   }
 }
 
