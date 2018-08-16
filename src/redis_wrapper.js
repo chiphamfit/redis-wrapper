@@ -49,19 +49,19 @@ class RedisWrapper {
     }
 
     switch (type) {
-      case HASH:
-        scanType = this.client.hscan;
-        break;
-      case SET:
-        scanType = this.client.sscan;
-        break;
-      case ZSET:
-        scanType = this.client.zscan;
-        break;
-      case STRING:
-        break;
-      default:
-        throw new Error('type is not supported');
+    case HASH:
+      scanType = this.client.hscan;
+      break;
+    case SET:
+      scanType = this.client.sscan;
+      break;
+    case ZSET:
+      scanType = this.client.zscan;
+      break;
+    case STRING:
+      break;
+    default:
+      throw new Error('type is not supported');
     }
 
     const cacheScan = promisify(scanType).bind(this.client);

@@ -5,7 +5,7 @@ const {
 } = require('./config');
 
 describe('Collection', () => {
-  let lazyClient, fullClient;
+  let lazyClient;
   const dbName = 'demo';
   const collectionName = 'inventory';
 
@@ -13,7 +13,7 @@ describe('Collection', () => {
     const init = await Enviroment.init();
     assert.isUndefined(init);
     lazyClient = Enviroment.lazyClient(240);
-    fullClient = Enviroment.fullClient();
+    // fullClient = Enviroment.fullClient();
   });
 
   it('#constructor(): Create a collection', () => {
