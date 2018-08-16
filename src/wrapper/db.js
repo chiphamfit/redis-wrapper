@@ -1,55 +1,69 @@
-const Collection = require('./collection');
+const CollectionLazy = require('./collection_lazy');
+const CollectionFull = require('./collection_full');
+const FULL_MODE = require('./wrapper').FULL_MODE;
 
 class Db {
-  constructor(mongoDb, redisWrapper) {
-    if (mongoDb) {
-
-    }
-    this.db = mongoDb;
+  constructor(mongoDb, redisWrapper, options) {
+    this.name = mongoDb.s.databaseName;
+    this.mongoDb = mongoDb;
     this.redisWrapper = redisWrapper;
-  }
-
-  dropDatabase() {
-
+    this.options = options;
   }
 
   collection(name) {
-    if (!(name instanceof String) || name.length === 0) {
+    if (name == '') {
       throw new TypeError('collection name must be a non-empty string');
     }
 
-    return new Collection(name, this);
+    const collection = this.mongoDb.collection(name);
+
+    if (this.options.mode === FULL_MODE) {
+      return new CollectionFull(collection, this.redisWrapper);
+    }
+
+    return new CollectionLazy(collection, this.redisWrapper, this.options.expire);
   }
 
   async collections() {
     let listCollections = [];
     let inCache = true;
-    const key = db.dbName;
+    const key = this.name;
 
-    // try search in cache
+    // Try search in cache first
     listCollections = await this.redisWrapper.search(key, 'set');
 
     if (listCollections.length > 0) {
+      // Convert string back to Collection
+      listCollections = listCollections.map(collection => {
+        return JSON.parse(collection);
+      });
       return listCollections;
     }
 
     // if can't found any data, try searching in mongodb
     if (listCollections.length === 0) {
-      listCollections = await this.db.listCollections().toArray();
+      listCollections = await this.mongoDb.listCollections().toArray();
       inCache = false;
     }
 
     // Update cache
-    if (listCollections.length > 0) {
-      if (!inCache) {
-        const cacheData = listCollections.map(collection => {
-          return JSON.stringify(collection);
-        });
-        await save(key, cacheData, 'set');
-      }
+    if (!inCache && listCollections.length > 0) {
+      const cacheData = listCollections.map(collection => {
+        return JSON.stringify(collection);
+      });
+      await this.redisWrapper.save(key, cacheData, 'set');
     }
 
     return listCollections;
+  }
+
+  dropDatabase() {
+    // drop database from mongo
+    this.mongoDb.dropDatabase();
+    // remove collection cache
+    this.redisWrapper.delete(this.name);
+    // also drop all relate data in cache
+    // { implement here }
   }
 }
 

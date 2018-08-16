@@ -4,7 +4,8 @@
   "description": "A wrapper use redis to cache mongo database",
   "main": "index.js",
   "scripts": {
-    "test": "mocha"
+    "test": "mocha ./test/*.spec.js --timeout 10000",
+    "eslint": "eslint *.js"
   },
   "repository": {
     "type": "git",
@@ -24,6 +25,9 @@
   },
   "devDependencies": {
     "chai": "^4.1.2",
+    "eslint": "^5.3.0",
+    "eslint-config-airbnb-base": "^13.1.0",
+    "eslint-plugin-import": "^2.14.0",
     "mocha": "^5.2.0"
   }
 }

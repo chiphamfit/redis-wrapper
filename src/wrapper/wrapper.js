@@ -1,12 +1,14 @@
 // Dependences
 const MongoClient = require('mongodb').MongoClient;
 const RedisClient = require('redis').RedisClient;
-const RedisWrapper = require('../redis_wrap');
+const RedisWrapper = require('../redis_wrapper').RedisWrapper;
+const Db = require('./db');
 
 // Constants
 const LAZY_MODE = 'lazy';
 const FULL_MODE = 'full';
 const DEFAULT_EXPIRE = 120;
+const NO_EXPIRE = -1;
 
 class Wrapper {
   constructor(mongo, redis, mode = LAZY_MODE, expire = DEFAULT_EXPIRE) {
@@ -22,28 +24,34 @@ class Wrapper {
       throw new TypeError(`mode must be ${LAZY_MODE} or ${FULL_MODE}`);
     }
 
-    if (expire < 0 || !isNaN(expire)) {
+    if (!(expire > 0 || expire === NO_EXPIRE)) {
       throw new TypeError('expire time must be a positive number');
     }
 
-    this.mongo = mongo;
+    this.mongoClient = mongo;
     this.redisWrapper = new RedisWrapper(redis);
-    this.mode = mode;
-    this.expire = expire;
+    this.options = {
+      mode: mode,
+      expire: mode === FULL_MODE ? NO_EXPIRE : expire
+    };
   }
 
   db(dbName, options) {
-    if (!this.mongo.isConnected()) {
+    if (!this.mongoClient.isConnected()) {
       throw new Error('mongo client is not connected');
     }
 
-    const db = this.mongo.db(dbName, options);
-    // create new db and return
+    const db = this.mongoClient.db(dbName, options);
+    return new Db(db, this.redisWrapper, this.options);
   }
 
-  cleanCache() {
-    this.redisWrapper.cleanCache();
+  async clearCache() {
+    await this.redisWrapper.clearCache();
   }
 }
 
-module.exports = Wrapper;
+module.exports = {
+  Wrapper,
+  LAZY_MODE,
+  FULL_MODE
+};

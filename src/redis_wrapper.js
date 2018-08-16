@@ -1,4 +1,3 @@
-const RedisClient = require('redis').RedisClient;
 const promisify = require('util').promisify;
 
 // Constants
@@ -22,11 +21,15 @@ class RedisWrapper {
     });
 
     this.client = client;
-  };
+  }
 
   async search(key, type = STRING, match = NO_MATCH, count = NO_COUNT) {
-    if (!(key instanceof String)) {
-      throw new TypeError('key must be a string');
+    if ('string' !== typeof key) {
+      throw new TypeError('key name must be a String');
+    }
+
+    if (key.length === 0) {
+      throw new TypeError('key names cannot be empty');
     }
 
     match = match instanceof String ? match : NO_MATCH;
@@ -56,14 +59,12 @@ class RedisWrapper {
         scanType = this.client.zscan;
         break;
       case STRING:
-        scanType = this.client.scan;
         break;
       default:
         throw new Error('type is not supported');
     }
 
-    const cacheScan = promisify(scanType);
-
+    const cacheScan = promisify(scanType).bind(this.client);
     do {
       const scanResult = await cacheScan(query);
       // update query's nextCursor
@@ -77,7 +78,7 @@ class RedisWrapper {
     } while (nextCursor !== FIRST_CURSOR && (result.length < count || count === NO_COUNT));
 
     return result;
-  };
+  }
 
   save({
     key = '',
@@ -116,16 +117,18 @@ class RedisWrapper {
     if (expire !== NO_EXPIRE) {
       this.client.expire(key, expire);
     }
-  };
-
-  cleanCache() {
-    this.client.flushdb((err) => {
-      throw err;
-    });
   }
-};
+
+  delete(key) {
+    this.client.delete(key);
+  }
+
+  clearCache() {
+    return this.client.flushdb();
+  }
+}
 
 module.exports = {
   RedisWrapper,
-  NO_EXPIRE
+  NO_EXPIRE,
 };
