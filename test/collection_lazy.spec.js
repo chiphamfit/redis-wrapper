@@ -15,7 +15,6 @@ describe('CollectionLazy', () => {
     const init = await Enviroment.init();
     assert.isUndefined(init);
     lazyClient = Enviroment.lazyClient(240);
-    // fullClient = Enviroment.fullClient();
   });
 
   it('#constructor(): Create a collection',async () => {
@@ -24,6 +23,6 @@ describe('CollectionLazy', () => {
     assert.instanceOf(db, Db);
     const coll = await db.collection(collectionName);
     assert.instanceOf(coll, CollectionLazy);
-    // assert.equal(coll.name, collectionName);
+    assert.equal(coll.s.name, collectionName);
   });
 });

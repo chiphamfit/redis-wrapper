@@ -14,15 +14,40 @@ class Db {
     if (name == '') {
       throw new TypeError('collection name must be a non-empty string');
     }
+    const db = this.mongoDb;
+    options = options || {};
 
-    const collection = this.mongoDb.collection(name, options);
-    const collectionOptions = [this.mongoDb, await this.mongoDb.s.topology, this.mongoDb.s.databaseName, name, await this.mongoDb.s.pkFactory, options];
+    options = Object.assign({}, options);
 
-    if (this.options.mode === FULL_MODE) {
-      return new CollectionFull(collectionOptions, collection, this.redisWrapper);
+    // Set the promise library
+    options.promiseLibrary = db.s.promiseLibrary;
+
+    // If we have not set a collection level readConcern set the db level one
+    options.readConcern = options.readConcern || db.s.readConcern;
+
+    // Do we have ignoreUndefined set
+    if (db.s.options.ignoreUndefined) {
+      options.ignoreUndefined = db.s.options.ignoreUndefined;
     }
 
-    return new CollectionLazy(collectionOptions, collection, this.redisWrapper, this.options.expire);
+    // Create initial options for collection
+    const initOptions = {
+      db: db,
+      topology: db.s.topology,
+      dbName: this.name,
+      name: name,
+      pkFactory: db.s.pkFactory,
+      options: options,
+      redis: this.redisWrapper,
+      expire: this.expire
+    };
+
+
+    if (this.options.mode === FULL_MODE) {
+      return new CollectionFull(initOptions);
+    }
+
+    return new CollectionLazy(initOptions);
   }
 
   async collections() {

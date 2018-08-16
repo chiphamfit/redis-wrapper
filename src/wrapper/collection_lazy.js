@@ -1,26 +1,7 @@
 const crypto = require('crypto');
-const Db = require('mongodb');
-const RedisWrapper = require('../redis_wrapper').RedisWrapper;
+const CollectionWrapper = require('./collection');
 
-class CollectionLazy extends Db.Collection {
-  constructor(collectionOptions, collection, redisWrapper, expire) {
-    if (!(collection instanceof Db.Collection)) {
-      throw new TypeError('collection must be a mongodb Collection');
-    }
-
-    if (!(redisWrapper instanceof RedisWrapper)) {
-      throw new TypeError('redisWrapper must be a RedisWrapper');
-    }
-
-    super(...collectionOptions);
-    // Copy proterties
-    for (let key in collection) {
-      this[key] = collection[key];
-    }
-    this.redisWrapper = redisWrapper;
-    this.expire = expire;
-  }
-
+class CollectionLazy extends CollectionWrapper {
   async find(query, option) {
     // unpack collection
     let cursor = [];
