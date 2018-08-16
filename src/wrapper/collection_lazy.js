@@ -3,7 +3,7 @@ const Db = require('mongodb');
 const RedisWrapper = require('../redis_wrapper').RedisWrapper;
 
 class CollectionLazy extends Db.Collection {
-  constructor(collection, redisWrapper, expire) {
+  constructor(collectionOptions, collection, redisWrapper, expire) {
     if (!(collection instanceof Db.Collection)) {
       throw new TypeError('collection must be a mongodb Collection');
     }
@@ -12,7 +12,7 @@ class CollectionLazy extends Db.Collection {
       throw new TypeError('redisWrapper must be a RedisWrapper');
     }
 
-    super('nameholder', 'nameholder', 'nameholder', 'nameholder');
+    super(...collectionOptions);
     // Copy proterties
     for (let key in collection) {
       this[key] = collection[key];

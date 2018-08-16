@@ -2,9 +2,11 @@
 const assert = require('chai').assert;
 const {
   Enviroment,
+  Db,
+  CollectionLazy
 } = require('./config');
 
-describe('Collection', () => {
+describe('CollectionLazy', () => {
   let lazyClient;
   const dbName = 'demo';
   const collectionName = 'inventory';
@@ -16,9 +18,12 @@ describe('Collection', () => {
     // fullClient = Enviroment.fullClient();
   });
 
-  it('#constructor(): Create a collection', () => {
+  it('#constructor(): Create a collection',async () => {
     // Lazy client
-    const coll = lazyClient.db(dbName).collection(collectionName);
-    assert.equal(coll.name, collectionName);
+    const db = lazyClient.db(dbName);
+    assert.instanceOf(db, Db);
+    const coll = await db.collection(collectionName);
+    assert.instanceOf(coll, CollectionLazy);
+    // assert.equal(coll.name, collectionName);
   });
 });

@@ -10,18 +10,19 @@ class Db {
     this.options = options;
   }
 
-  collection(name) {
+  async collection(name, options) {
     if (name == '') {
       throw new TypeError('collection name must be a non-empty string');
     }
 
-    const collection = this.mongoDb.collection(name);
+    const collection = this.mongoDb.collection(name, options);
+    const collectionOptions = [this.mongoDb, await this.mongoDb.s.topology, this.mongoDb.s.databaseName, name, await this.mongoDb.s.pkFactory, options];
 
     if (this.options.mode === FULL_MODE) {
-      return new CollectionFull(collection, this.redisWrapper);
+      return new CollectionFull(collectionOptions, collection, this.redisWrapper);
     }
 
-    return new CollectionLazy(collection, this.redisWrapper, this.options.expire);
+    return new CollectionLazy(collectionOptions, collection, this.redisWrapper, this.options.expire);
   }
 
   async collections() {
