@@ -4,7 +4,7 @@ const {
   Enviroment,
   Db,
   CollectionLazy
-} = require('./config');
+} = require('./environment');
 
 describe('CollectionLazy', () => {
   let lazyClient, db;

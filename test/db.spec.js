@@ -2,7 +2,7 @@
 const assert = require('chai').assert;
 const {
   Enviroment,
-} = require('./config');
+} = require('./environment');
 
 describe('Database', () => {
   let lazyClient, fullClient;

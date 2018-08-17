@@ -4,7 +4,7 @@ const {
   Enviroment,
   Wrapper,
   Db
-} = require('./config');
+} = require('./environment');
 
 describe('Wrapper', () => {
   let lazyClient, fullClient;
