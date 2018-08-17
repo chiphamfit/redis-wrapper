@@ -23,7 +23,7 @@ class RedisWrapper {
     this.client = client;
   }
 
-  async search(key, type = STRING, match = NO_MATCH, count = NO_COUNT) {
+  async search(key, type = STRING, count = NO_COUNT, match = NO_MATCH) {
     if ('string' !== typeof key) {
       throw new TypeError('key name must be a String');
     }
@@ -36,9 +36,10 @@ class RedisWrapper {
     count = count > 0 ? count : NO_COUNT;
 
     let result = [];
+    let command = null;
     let query = [key, FIRST_CURSOR];
     let nextCursor = FIRST_CURSOR;
-    let scanType = null;
+    const redis = this.client;
 
     if (count !== NO_COUNT) {
       query = query.concat('COUNT', count);
@@ -50,30 +51,31 @@ class RedisWrapper {
 
     switch (type) {
     case HASH:
-      scanType = this.client.hscan;
+      command = promisify(redis.hscan).bind(redis);
       break;
     case SET:
-      scanType = this.client.sscan;
+      command = promisify(redis.sscan).bind(redis);
       break;
     case ZSET:
-      scanType = this.client.zscan;
+      command = promisify(redis.zscan).bind(redis);
       break;
     case STRING:
-      break;
+      command = promisify(redis.get).bind(redis);
+      return await command(key);
     default:
       throw new Error('type is not supported');
     }
 
-    const cacheScan = promisify(scanType).bind(this.client);
     do {
-      const scanResult = await cacheScan(query);
+      const scanResult = await command(query);
       // update query's nextCursor
       nextCursor = scanResult[NEXT_CURSOR_INDEX];
       query[1] = nextCursor;
       // add data to result
       const data = scanResult[DATA_INDEX];
       if (data) {
-        result = result.concat(data);
+        result = [...result, ...data];
+        // result = result.concat(data);
       }
     } while (nextCursor !== FIRST_CURSOR && (result.length < count || count === NO_COUNT));
 
@@ -111,6 +113,7 @@ class RedisWrapper {
       parameters = [key, ...data];
     }
 
+    // data can be anythings
     if (type === STRING) {
       command = promisify(redis.set).bind(redis);
       parameters = [key, JSON.stringify(data)];
