@@ -2,7 +2,7 @@ const MongoClient = require('mongodb').MongoClient;
 const RedisClient = require('redis').createClient;
 const Wrapper = require('../src/wrapper/wrapper').Wrapper;
 const Db = require('../src/wrapper/db');
-const CollectionLazy = require('../src/wrapper/collection_lazy');
+const LazyCollection = require('../src/wrapper/lazy_collection');
 const CollectionFull = require('../src/wrapper/collection_full');
 
 const MONGO_URL = 'mongodb://localhost:27017/test';
@@ -36,5 +36,5 @@ module.exports = {
   Wrapper,
   Db,
   CollectionFull,
-  CollectionLazy
+  LazyCollection
 };

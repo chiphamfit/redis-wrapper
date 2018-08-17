@@ -1,4 +1,4 @@
-const Collection = require('mongodb/lib/collection');
+const Collection = require('mongodb').Collection;
 
 class CollectionWrapper extends Collection {
   constructor({
@@ -16,5 +16,4 @@ class CollectionWrapper extends Collection {
     this.expire = expire;
   }
 }
-
 module.exports = CollectionWrapper;

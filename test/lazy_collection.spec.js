@@ -30,9 +30,7 @@ describe('LazyCollection', () => {
   describe('#find()', () => {
     it('Should return all documents', async () => {
       const coll = await db.collection(collectionName);
-      const result = await coll.find(null, {
-        ab: 'abc'
-      });
+      const result = await coll.find();
       assert.isNotEmpty(result);
       assert.isObject(result[1]);
     });

@@ -1,4 +1,4 @@
-const CollectionLazy = require('./collection_lazy');
+const LazyCollection = require('./lazy_collection');
 const CollectionFull = require('./collection_full');
 const FULL_MODE = require('./wrapper').FULL_MODE;
 
@@ -47,7 +47,7 @@ class Db {
       return new CollectionFull(initOptions);
     }
 
-    return new CollectionLazy(initOptions);
+    return new LazyCollection(initOptions);
   }
 
   async collections() {
