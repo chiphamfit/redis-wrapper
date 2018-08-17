@@ -17,12 +17,23 @@ describe('CollectionLazy', () => {
     lazyClient = Enviroment.lazyClient(240);
   });
 
-  it('#constructor(): Create a collection',async () => {
-    // Lazy client
-    const db = lazyClient.db(dbName);
-    assert.instanceOf(db, Db);
-    const coll = await db.collection(collectionName);
-    assert.instanceOf(coll, CollectionLazy);
-    assert.equal(coll.s.name, collectionName);
+  describe('#constructor()', () => {
+    it('Create a collection', async () => {
+      const db = lazyClient.db(dbName);
+      assert.instanceOf(db, Db);
+      const coll = await db.collection(collectionName);
+      assert.instanceOf(coll, CollectionLazy);
+      assert.equal(coll.s.name, collectionName);
+    });
+  });
+  
+  describe('#search()', () => {
+    it('Must return all documents in collection', async ()=>{
+      const db = lazyClient.db(dbName);
+      const coll = await db.collection(collectionName);
+      const result = await coll.find();
+      assert.isNotEmpty(result);
+      // console.log(result);
+    });
   });
 });

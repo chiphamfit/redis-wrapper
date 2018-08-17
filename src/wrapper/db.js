@@ -39,7 +39,7 @@ class Db {
       pkFactory: db.s.pkFactory,
       options: options,
       redis: this.redisWrapper,
-      expire: this.expire
+      expire: this.options.expire
     };
 
 

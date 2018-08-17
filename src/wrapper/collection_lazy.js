@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const CollectionWrapper = require('./collection');
 
 class CollectionLazy extends CollectionWrapper {
-  async find(query, option) {
+  async find(query = {}, option = {}) {
     // unpack collection
     let cursor = [];
     let listDocuments = [];
@@ -29,7 +29,7 @@ class CollectionLazy extends CollectionWrapper {
       .digest('hex');
 
     // scan in redis fisrt
-    listDocuments = await this.redisWrapper.scan(key, 'set');
+    listDocuments = await this.redisWrapper.search(key, 'set');
     // if can't found in cache, find in mongodb
     if (listDocuments.length === 0) {
       inCache = false;
@@ -42,7 +42,8 @@ class CollectionLazy extends CollectionWrapper {
       listDocuments = listDocuments.map(document => {
         return JSON.stringify(document);
       });
-      this.redisWrapper.save(key, listDocuments, 'set', this.expire);
+      
+      await this.redisWrapper.save(key, listDocuments, 'set', this.expire);
     }
 
     return listDocuments;

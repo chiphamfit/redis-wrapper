@@ -80,42 +80,48 @@ class RedisWrapper {
     return result;
   }
 
-  save({
-    key = '',
-    data = {},
-    type = STRING,
-    expire = NO_EXPIRE
-  }) {
+  async save(key = '', data = {}, type = STRING, expire = NO_EXPIRE) {
+    let command, parameters;
+    const redis = this.client;
+
     // data should be a JSON
     if (type === HASH) {
+      parameters = [];
       for (let field in data) {
-        this.client.hset(key, field, data[field]);
+        command = promisify(redis.hset).bind(redis);
+        parameters.push(key, field, data[field]);
       }
     }
 
     // data should be a JSON
     if (type === ZSET) {
+      command = promisify(redis.zadd).bind(redis);
+      parameters = [key];
+
       for (let field in data) {
         const score = data[field];
         const member = field;
-        this.client.zadd(key, score, member);
+        parameters.push(score, member);
       }
     }
 
     // data should be an array of members
     if (type === SET) {
-      const set = [key].concat(data);
-      this.client.sadd(set);
+      command = promisify(redis.sadd).bind(redis);
+      parameters = [key, ...data];
     }
 
     if (type === STRING) {
-      const value = JSON.stringify(data);
-      this.client.set(key, value);
+      command = promisify(redis.set).bind(redis);
+      parameters = [key, JSON.stringify(data)];
     }
+
+    // Execute the command
+    await command(parameters);
 
     // Set expire time for cache
     if (expire !== NO_EXPIRE) {
-      this.client.expire(key, expire);
+      redis.expire(key, expire);
     }
   }
 
