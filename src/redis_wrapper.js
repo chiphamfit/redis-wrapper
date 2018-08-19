@@ -1,4 +1,5 @@
 const promisify = require('util').promisify;
+const createClient = require('redis').createClient;
 
 // Constants
 const NO_COUNT = -1;
@@ -13,14 +14,20 @@ const ZSET = 'zset';
 const STRING = 'string';
 
 class RedisWrapper {
-  constructor(client) {
-    client.on('error', (error) => {
+  constructor(client, expire = NO_EXPIRE) {
+    this.client = client || createClient();
+
+    this.client.on('error', (error) => {
       if (error) {
         throw error;
       }
     });
 
-    this.client = client;
+    if (isNaN(expire) || expire < NO_EXPIRE) {
+      throw new TypeError('expire must be a positive number');
+    }
+
+    this.expire = expire;
   }
 
   async search(key, type = STRING, count = NO_COUNT, match = NO_MATCH) {
@@ -82,7 +89,7 @@ class RedisWrapper {
     return result;
   }
 
-  async save(key = '', data = {}, type = STRING, expire = NO_EXPIRE) {
+  async save(key = '', data = {}, type = STRING) {
     let command, parameters;
     const redis = this.client;
 
@@ -123,8 +130,8 @@ class RedisWrapper {
     await command(parameters);
 
     // Set expire time for cache
-    if (expire !== NO_EXPIRE) {
-      redis.expire(key, expire);
+    if (this.expire !== NO_EXPIRE) {
+      redis.expire(key, this.expire);
     }
   }
 

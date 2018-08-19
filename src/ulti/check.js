@@ -19,7 +19,16 @@ function isId(id) {
   return (id && id._bsontype === 'ObjectID');
 }
 
+function isPositiveNumber(number) {
+  if (isNaN(number)) {
+    return false;
+  }
+
+  return number > 0;
+}
+
 module.exports = {
+  isPositiveNumber,
   isNotEmptyObject,
   isNotEmptyString,
   isObject,
