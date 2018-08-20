@@ -9,6 +9,44 @@ class LazyCollection {
     this.redisWrapper = redisWrapper;
   }
 
+  async createIndex(fieldOrSpec, options) {
+    return await this.collection(fieldOrSpec, options);
+  }
+
+  async createIndexs(indexSpecs, options) {
+    return await this.collection.createIndexs(indexSpecs, options);
+  }
+
+  async deleteMany(filter, options) {
+    // find all doc with filter and delete them
+    // here
+    return await this.collection.deleteMany(filter, options);
+  }
+
+  async deleteOne(filter, options) {
+    // find one doc with filter and delete them
+    // here
+    return await this.collection.deleteOne(filter, options);
+  }
+
+  async drop(options) {
+    // drop all cached data
+    await this.redisWrapper.clearCache();
+    return await this.collection.drop(options);
+  }
+
+  async dropAllIndexes() {
+    return await this.collection.dropAllIndexes();
+  }
+
+  async dropIndex(indexName, options) {
+    return await this.collection.dropIndex(indexName, options);
+  }
+
+  async dropIndexs(options) {
+    return await this.collection.dropIndexs(options);
+  }
+
   async find(query = {}, option = {}) {
     // Check special case where we are using an objectId
     if (isId(query)) {
@@ -78,6 +116,46 @@ class LazyCollection {
     }
 
     return document || null;
+  }
+
+  async findOneAndDelete(filter, options) {
+    return this.collection.findOneAndDelete(filter, options);
+  }
+
+  async findOneAndReplace(filter, replacement, options) {
+    return this.collection.findOneAndReplace(filter, replacement, options);
+  }
+
+  async findOneAndUpdate(filter, update, options) {
+    return this.collection.findOneAndUpdate(filter, update, options);
+  }
+
+  async indexes(options) {
+    return await this.collection.indexes(options);
+  }
+
+  async insertMany(docs, options) {
+    return await this.collection.insertMany(docs, options);
+  }
+
+  async insertOne(doc, options) {
+    return await this.collection.insertOne(doc, options);
+  }
+
+  async listIndexes(options) {
+    return await this.collection.listIndexes(options);
+  }
+
+  async replaceOne(filter, doc, options) {
+    return await this.collection.replaceOne(filter, doc, options);
+  }
+
+  async updateMany(filter, update, options) {
+    return await this.collection.updateMany(filter, update, options);
+  }
+
+  async updateOne(filter, update, options) {
+    return await this.collection.updateOne(filter, update, options);
   }
 }
 

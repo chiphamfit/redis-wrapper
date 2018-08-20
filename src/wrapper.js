@@ -1,8 +1,8 @@
 // Dependences
 const MongoClient = require('mongodb').MongoClient;
 const RedisWrapper = require('./redis_wrapper').RedisWrapper;
-const LazyCollection = require('./wrapper/lazy_collection');
-const ThroughCollection = require('./wrapper/lazy_collection').LazyCollection;
+const LazyCollection = require('./collection/lazy_collection');
+const ThroughCollection = require('./collection/through_collection');
 
 // Constants
 const NO_EXPIRE = -1;
@@ -12,7 +12,7 @@ const OPTION = {
 };
 
 class Wrapper {
-  constructor(mongo, redis, expire) {
+  constructor(mongo, redis, expire = NO_EXPIRE) {
     if (!(mongo instanceof MongoClient)) {
       MongoClient.connect(URL, OPTION, (error, client) => {
         if (error) {
