@@ -13,7 +13,7 @@ class LazyCollection {
   }
 
   async createIndex(fieldOrSpec, options) {
-    return await this.collection(fieldOrSpec, options);
+    return await this.collection.createIndex(fieldOrSpec, options);
   }
 
   async createIndexs(indexSpecs, options) {
@@ -21,20 +21,17 @@ class LazyCollection {
   }
 
   async deleteMany(filter, options) {
-    // find all doc with filter and delete them
-    await this.redisWrapper.clearCache();
+    this.redisWrapper.clearCache();
     return await this.collection.deleteMany(filter, options);
   }
 
   async deleteOne(filter, options) {
-    // find one doc with filter and delete them
-    await this.redisWrapper.clearCache();
+    this.redisWrapper.clearCache();
     return await this.collection.deleteOne(filter, options);
   }
 
   async drop(options) {
-    // drop all cached data
-    await this.redisWrapper.clearCache();
+    this.redisWrapper.clearCache();
     return await this.collection.drop(options);
   }
 
@@ -59,13 +56,11 @@ class LazyCollection {
     }
 
     // create key for search/save
-    const _query = JSON.stringify(query);
-    const _option = JSON.stringify(option);
     const key = createHash('md5')
       .update(this.dbName)
       .update(this.name)
-      .update(_query)
-      .update(_option)
+      .update(JSON.stringify(query))
+      .update(JSON.stringify(option))
       .digest('hex');
 
     // scan in redis fisrt
@@ -87,7 +82,6 @@ class LazyCollection {
       const cacheData = listDocuments.map(doc => {
         return JSON.stringify(doc);
       });
-
       await this.redisWrapper.save(key, cacheData, 'set', this.expire);
     }
 
@@ -96,14 +90,12 @@ class LazyCollection {
 
   async findOne(query = {}, option = {}) {
     // create key for search/save
-    const _query = JSON.stringify(query);
-    const _option = JSON.stringify(option);
     const key = createHash('md5')
       .update('findOne')
       .update(this.dbName)
       .update(this.name)
-      .update(_query)
-      .update(_option)
+      .update(JSON.stringify(query))
+      .update(JSON.stringify(option))
       .digest('hex');
 
     // search in cache
@@ -122,17 +114,17 @@ class LazyCollection {
   }
 
   async findOneAndDelete(filter, options) {
-    await this.redisWrapper.clearCache();
+    this.redisWrapper.clearCache();
     return this.collection.findOneAndDelete(filter, options);
   }
 
   async findOneAndReplace(filter, replacement, options) {
-    await this.redisWrapper.clearCache();
+    this.redisWrapper.clearCache();
     return this.collection.findOneAndReplace(filter, replacement, options);
   }
 
   async findOneAndUpdate(filter, update, options) {
-    await this.redisWrapper.clearCache();
+    this.redisWrapper.clearCache();
     return this.collection.findOneAndUpdate(filter, update, options);
   }
 
@@ -141,12 +133,12 @@ class LazyCollection {
   }
 
   async insertMany(docs, options) {
-    await this.redisWrapper.clearCache();
+    this.redisWrapper.clearCache();
     return await this.collection.insertMany(docs, options);
   }
 
   async insertOne(doc, options) {
-    await this.redisWrapper.clearCache();
+    this.redisWrapper.clearCache();
     return await this.collection.insertOne(doc, options);
   }
 
@@ -155,17 +147,17 @@ class LazyCollection {
   }
 
   async replaceOne(filter, doc, options) {
-    await this.redisWrapper.clearCache();
+    this.redisWrapper.clearCache();
     return await this.collection.replaceOne(filter, doc, options);
   }
 
   async updateMany(filter, update, options) {
-    await this.redisWrapper.clearCache();
+    this.redisWrapper.clearCache();
     return await this.collection.updateMany(filter, update, options);
   }
 
   async updateOne(filter, update, options) {
-    await this.redisWrapper.clearCache();
+    this.redisWrapper.clearCache();
     return await this.collection.updateOne(filter, update, options);
   }
 }
