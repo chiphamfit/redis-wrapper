@@ -51,15 +51,16 @@ class RedisWrapper {
       throw new TypeError('key name must be a String');
     }
 
+    const redis = this.client;
+    const _key = JSON.stringify(key);
+    const _type = type.toLocaleLowerCase();
+    const _match = match instanceof String ? match : NO_MATCH;
+    const _count = count > 0 ? count : NO_COUNT;
     // create scan's query, command
     let result = [];
     let command = null;
     let query = [key, FIRST_CURSOR];
     let nextCursor = FIRST_CURSOR;
-    const redis = this.client;
-    const _type = type.toLocaleLowerCase();
-    const _match = match instanceof String ? match : NO_MATCH;
-    const _count = count > 0 ? count : NO_COUNT;
 
     if (_match !== NO_MATCH) {
       query = [...query, 'MATCH', match];
@@ -70,8 +71,8 @@ class RedisWrapper {
     }
 
     if (_type === STRING) {
-      command = promisify(redis.get).bind(redis);
-      return await command(key);
+      const get = promisify(redis.get).bind(redis);
+      return await get(_key);
     }
 
     switch (_type) {
@@ -112,20 +113,21 @@ class RedisWrapper {
   async save(key = '', data = {}, type = STRING) {
     let command, parameters;
     const redis = this.client;
+    const _key = JSON.stringify(key);
 
     // data should be a JSON
     if (type === HASH) {
       parameters = [];
       for (let field in data) {
         command = promisify(redis.hset).bind(redis);
-        parameters.push(key, field, data[field]);
+        parameters.push(_key, field, data[field]);
       }
     }
 
     // data should be a JSON
     if (type === ZSET) {
       command = promisify(redis.zadd).bind(redis);
-      parameters = [key];
+      parameters = [_key];
 
       for (let field in data) {
         const score = data[field];
@@ -137,21 +139,25 @@ class RedisWrapper {
     // data should be an array of members
     if (type === SET) {
       command = promisify(redis.sadd).bind(redis);
-      parameters = [key, ...data];
+      parameters = [_key, ...data];
     }
 
     // data can be anythings
     if (type === STRING) {
       command = promisify(redis.set).bind(redis);
-      parameters = [key, JSON.stringify(data)];
+      parameters = [_key, JSON.stringify(data)];
     }
 
     // Execute the command
-    await command(parameters);
+    try {
+      await command(parameters);
+    } catch (error) {
+      throw error;
+    }
 
     // Set expire time for cache
     if (this.expire !== NO_EXPIRE) {
-      redis.expire(key, this.expire);
+      redis.expire(_key, this.expire);
     }
   }
 
