@@ -1,8 +1,14 @@
 const createHash = require('crypto').createHash;
-const CollectionWrapper = require('./collection');
 const isId = require('../ulti/check').isId;
 
-class LazyCollection extends CollectionWrapper {
+class LazyCollection {
+  constructor(collection, redisWrapper) {
+    this.dbName = collection.s.dbName;
+    this.name = collection.s.name;
+    this.collection = collection;
+    this.redisWrapper = redisWrapper;
+  }
+
   async find(query = {}, option = {}) {
     // Check special case where we are using an objectId
     if (isId(query)) {
@@ -12,13 +18,11 @@ class LazyCollection extends CollectionWrapper {
     }
 
     // create key for search/save
-    const dbName = this.s.dbName;
-    const collectionName = this.s.name;
     const _query = JSON.stringify(query);
     const _option = JSON.stringify(option);
     const key = createHash('md5')
-      .update(dbName)
-      .update(collectionName)
+      .update(this.dbName)
+      .update(this.name)
       .update(_query)
       .update(_option)
       .digest('hex');
@@ -35,7 +39,7 @@ class LazyCollection extends CollectionWrapper {
     }
 
     // if can't found in cache, try to find in mongodb
-    const cursor = await super.find(query, option);
+    const cursor = await this.collection.find(query, option);
     const listDocuments = await cursor.toArray();
     // save result into cache 
     if (listDocuments && listDocuments.length > 0) {
@@ -51,14 +55,12 @@ class LazyCollection extends CollectionWrapper {
 
   async findOne(query = {}, option = {}) {
     // create key for search/save
-    const dbName = this.s.dbName;
-    const collectionName = this.s.name;
     const _query = JSON.stringify(query);
     const _option = JSON.stringify(option);
     const key = createHash('md5')
       .update('findOne')
-      .update(dbName)
-      .update(collectionName)
+      .update(this.dbName)
+      .update(this.name)
       .update(_query)
       .update(_option)
       .digest('hex');
@@ -70,7 +72,7 @@ class LazyCollection extends CollectionWrapper {
     }
 
     // search in mongodb
-    document = await super.findOne(query, option);
+    document = await this.collection.findOne(query, option);
     if (document && document._id) {
       this.redisWrapper.save(key, document, 'string');
     }
