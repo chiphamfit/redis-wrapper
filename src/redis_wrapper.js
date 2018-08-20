@@ -1,10 +1,10 @@
 const promisify = require('util').promisify;
-const createClient = require('redis').createClient;
+const RedisClient = require('redis').createClient;
 
 // Constants
 const NO_COUNT = -1;
 const NO_EXPIRE = -1;
-const NO_MATCH = '';
+const NO_MATCH = '*';
 const FIRST_CURSOR = '0';
 const NEXT_CURSOR_INDEX = 0;
 const DATA_INDEX = 1;
@@ -14,8 +14,17 @@ const ZSET = 'zset';
 const STRING = 'string';
 
 class RedisWrapper {
-  constructor(client, expire = NO_EXPIRE) {
-    this.client = client || createClient();
+  /**
+   * Create a Redis Wrapper client
+   * @param {RedisClient} client 
+   * @param {Number} expire 
+   */
+  constructor(client = {}, expire = NO_EXPIRE) {
+    if (client instanceof RedisClient) {
+      this.client = client;
+    } else {
+      this.client = RedisClient();
+    }
 
     this.client.on('error', (error) => {
       if (error) {
@@ -24,39 +33,48 @@ class RedisWrapper {
     });
 
     if (isNaN(expire) || expire < NO_EXPIRE) {
-      throw new TypeError('expire must be a positive number');
+      throw new TypeError('expire must be a positive Number');
     }
 
     this.expire = expire;
   }
 
-  async search(key, type = STRING, count = NO_COUNT, match = NO_MATCH) {
-    if ('string' !== typeof key) {
+  /**
+   * Search value in redis by key
+   * @param {String} key 
+   * @param {String} type 
+   * @param {Number} count 
+   * @param {Number} match 
+   */
+  async search(key = '*', type = STRING, count = NO_COUNT, match = NO_MATCH) {
+    if (typeof key !== STRING) {
       throw new TypeError('key name must be a String');
     }
 
-    if (key.length === 0) {
-      throw new TypeError('key names cannot be empty');
-    }
-
-    match = match instanceof String ? match : NO_MATCH;
-    count = count > 0 ? count : NO_COUNT;
-
+    // create scan's query, command
     let result = [];
     let command = null;
     let query = [key, FIRST_CURSOR];
     let nextCursor = FIRST_CURSOR;
     const redis = this.client;
+    const _type = type.toLocaleLowerCase();
+    const _match = match instanceof String ? match : NO_MATCH;
+    const _count = count > 0 ? count : NO_COUNT;
 
-    if (count !== NO_COUNT) {
-      query = query.concat('COUNT', count);
+    if (_match !== NO_MATCH) {
+      query = [...query, 'MATCH', match];
     }
 
-    if (match !== NO_MATCH) {
-      query = query.concat('MATCH', match);
+    if (_count !== NO_COUNT) {
+      query = [...query, 'COUNT', count];
     }
 
-    switch (type) {
+    if (_type === STRING) {
+      command = promisify(redis.get).bind(redis);
+      return await command(key);
+    }
+
+    switch (_type) {
     case HASH:
       command = promisify(redis.hscan).bind(redis);
       break;
@@ -66,9 +84,6 @@ class RedisWrapper {
     case ZSET:
       command = promisify(redis.zscan).bind(redis);
       break;
-    case STRING:
-      command = promisify(redis.get).bind(redis);
-      return await command(key);
     default:
       throw new Error('type is not supported');
     }
@@ -82,13 +97,18 @@ class RedisWrapper {
       const data = scanResult[DATA_INDEX];
       if (data) {
         result = [...result, ...data];
-        // result = result.concat(data);
       }
     } while (nextCursor !== FIRST_CURSOR && (result.length < count || count === NO_COUNT));
 
     return result;
   }
 
+  /**
+   * Save data to redis
+   * @param {String} key 
+   * @param {Object} data 
+   * @param {String} type 
+   */
   async save(key = '', data = {}, type = STRING) {
     let command, parameters;
     const redis = this.client;
