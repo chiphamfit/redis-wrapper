@@ -3,6 +3,9 @@ const isId = require('../ulti/check').isId;
 
 class LazyCollection {
   constructor(collection, redisWrapper) {
+    if (!collection.s) {
+      throw new TypeError('collection must be a Collection');
+    }
     this.dbName = collection.s.dbName;
     this.name = collection.s.name;
     this.collection = collection;
@@ -19,13 +22,13 @@ class LazyCollection {
 
   async deleteMany(filter, options) {
     // find all doc with filter and delete them
-    // here
+    await this.redisWrapper.clearCache();
     return await this.collection.deleteMany(filter, options);
   }
 
   async deleteOne(filter, options) {
     // find one doc with filter and delete them
-    // here
+    await this.redisWrapper.clearCache();
     return await this.collection.deleteOne(filter, options);
   }
 
@@ -119,14 +122,17 @@ class LazyCollection {
   }
 
   async findOneAndDelete(filter, options) {
+    await this.redisWrapper.clearCache();
     return this.collection.findOneAndDelete(filter, options);
   }
 
   async findOneAndReplace(filter, replacement, options) {
+    await this.redisWrapper.clearCache();
     return this.collection.findOneAndReplace(filter, replacement, options);
   }
 
   async findOneAndUpdate(filter, update, options) {
+    await this.redisWrapper.clearCache();
     return this.collection.findOneAndUpdate(filter, update, options);
   }
 
@@ -135,10 +141,12 @@ class LazyCollection {
   }
 
   async insertMany(docs, options) {
+    await this.redisWrapper.clearCache();
     return await this.collection.insertMany(docs, options);
   }
 
   async insertOne(doc, options) {
+    await this.redisWrapper.clearCache();
     return await this.collection.insertOne(doc, options);
   }
 
@@ -147,14 +155,17 @@ class LazyCollection {
   }
 
   async replaceOne(filter, doc, options) {
+    await this.redisWrapper.clearCache();
     return await this.collection.replaceOne(filter, doc, options);
   }
 
   async updateMany(filter, update, options) {
+    await this.redisWrapper.clearCache();
     return await this.collection.updateMany(filter, update, options);
   }
 
   async updateOne(filter, update, options) {
+    await this.redisWrapper.clearCache();
     return await this.collection.updateOne(filter, update, options);
   }
 }

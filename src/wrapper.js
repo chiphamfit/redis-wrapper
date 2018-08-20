@@ -13,17 +13,11 @@ const OPTION = {
 
 class Wrapper {
   constructor(mongo, redis, expire = NO_EXPIRE) {
-    if (!(mongo instanceof MongoClient)) {
-      MongoClient.connect(URL, OPTION, (error, client) => {
-        if (error) {
-          throw error;
-        }
-
-        mongo = client;
-      });
+    this.mongo = mongo instanceof MongoClient ? mongo : MongoClient.connect(URL, OPTION);
+    if (!(this.mongo instanceof Promise || this.mongo instanceof MongoClient)) {
+      throw new TypeError('must be a MongoClient or a Promise of it');
     }
 
-    this.mongo = mongo;
     this.redisWrapper = new RedisWrapper(redis, expire);
     this.lazy = this.redisWrapper.expire === NO_EXPIRE ? false : true;
   }
@@ -37,7 +31,7 @@ class Wrapper {
   }
 
   db(dbName, options) {
-    if (!this.mongo.isConnected()) {
+    if (!this.mongo || !this.mongo.isConnected()) {
       throw new Error('Mongo Client must connect before create db');
     }
 
