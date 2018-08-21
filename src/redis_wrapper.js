@@ -1,16 +1,21 @@
+const {
+  RedisClient,
+  createClient
+} = require('redis');
 const promisify = require('util').promisify;
-const RedisClient = require('redis').createClient;
 
 // Constants
 const NO_COUNT = -1;
 const NO_EXPIRE = -1;
 const NO_MATCH = '*';
+
 const FIRST_CURSOR = '0';
 const NEXT_CURSOR_INDEX = 0;
 const DATA_INDEX = 1;
-const HASH = 'hash';
+
 const SET = 'set';
 const ZSET = 'zset';
+const HASH = 'hash';
 const STRING = 'string';
 
 class RedisWrapper {
@@ -19,11 +24,11 @@ class RedisWrapper {
    * @param {RedisClient} client 
    * @param {Number} expire 
    */
-  constructor(client = {}, expire = NO_EXPIRE) {
+  constructor(client, expire = NO_EXPIRE) {
     if (client instanceof RedisClient) {
       this.client = client;
     } else {
-      this.client = RedisClient();
+      this.client = createClient();
     }
 
     this.client.on('error', (error) => {
@@ -76,17 +81,17 @@ class RedisWrapper {
     }
 
     switch (_type) {
-    case HASH:
-      command = promisify(redis.hscan).bind(redis);
-      break;
-    case SET:
-      command = promisify(redis.sscan).bind(redis);
-      break;
-    case ZSET:
-      command = promisify(redis.zscan).bind(redis);
-      break;
-    default:
-      throw new Error('type is not supported');
+      case HASH:
+        command = promisify(redis.hscan).bind(redis);
+        break;
+      case SET:
+        command = promisify(redis.sscan).bind(redis);
+        break;
+      case ZSET:
+        command = promisify(redis.zscan).bind(redis);
+        break;
+      default:
+        throw new Error('type is not supported');
     }
 
     do {
@@ -170,7 +175,19 @@ class RedisWrapper {
   }
 }
 
-module.exports = {
-  RedisWrapper,
-  NO_EXPIRE,
-};
+// /**
+//    * 
+//    * @param {Object} document 
+//    */
+//   async saveDocument(document) {
+//     if (typeof document !== 'object') {
+//       throw new TypeError('document must be a Object')
+//     }
+
+//     const key = JSON.stringify(document._id);
+//     const value = JSON.stringify(document);
+//     const command = promisify(this.client.set).bind(this.client);
+//     return await command(key, value);
+//   }
+
+module.exports = RedisWrapper;

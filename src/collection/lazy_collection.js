@@ -1,11 +1,11 @@
 const createHash = require('crypto').createHash;
-const isId = require('../ulti/check').isId;
 
 class LazyCollection {
   constructor(collection, redisWrapper) {
     if (!collection.s) {
       throw new TypeError('collection must be a Collection');
     }
+
     this.dbName = collection.s.dbName;
     this.name = collection.s.name;
     this.collection = collection;
@@ -49,7 +49,7 @@ class LazyCollection {
 
   async find(query = {}, option = {}) {
     // Check special case where we are using an objectId
-    if (isId(query)) {
+    if (query && query._bsontype === 'ObjectID') {
       query = {
         _id: query
       };
@@ -64,23 +64,31 @@ class LazyCollection {
       .digest('hex');
 
     // scan in redis fisrt
-    const cacheData = await this.redisWrapper.search(key, 'set');
-    // if found, parse result back to JSON
+    let listDocuments = [];
+    let cacheData = [];
+    try {
+      cacheData = await this.redisWrapper.search(key, 'set');
+    } catch (error) {
+      throw error;
+    }
+
+    // if cache hit, parse result back to JSON
     if (cacheData.length > 0) {
-      const result = cacheData.map(raw => {
+      listDocuments = cacheData.map(raw => {
         return JSON.parse(raw);
       });
 
-      return result;
+      return listDocuments;
     }
 
-    // if can't found in cache, try to find in mongodb
+    // if cache miss, try to find in mongodb
     const cursor = await this.collection.find(query, option);
-    const listDocuments = await cursor.toArray();
+    listDocuments = await cursor.toArray();
+
     // save result into cache 
     if (listDocuments && listDocuments.length > 0) {
-      const cacheData = listDocuments.map(doc => {
-        return JSON.stringify(doc);
+      const cacheData = listDocuments.map(document => {
+        return JSON.stringify(document);
       });
       await this.redisWrapper.save(key, cacheData, 'set', this.expire);
     }

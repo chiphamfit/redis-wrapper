@@ -1,6 +1,7 @@
 // Dependences
 const MongoClient = require('mongodb').MongoClient;
-const RedisWrapper = require('./redis_wrapper').RedisWrapper;
+const RedisClient = require('redis').RedisClient;
+const RedisWrapper = require('./redis_wrapper');
 const LazyCollection = require('./collection/lazy_collection');
 const ThroughCollection = require('./collection/through_collection');
 
@@ -12,13 +13,32 @@ const OPTION = {
 };
 
 class Wrapper {
-  constructor(mongo, redis, expire = NO_EXPIRE) {
-    this.mongo = mongo instanceof MongoClient ? mongo : MongoClient.connect(URL, OPTION);
-    if (!(this.mongo instanceof Promise || this.mongo instanceof MongoClient)) {
-      throw new TypeError('must be a MongoClient or a Promise of it');
+  constructor(mongo, redis, expire) {
+    const _mongo = MongoClient.connect(URL, OPTION);
+    // check if user bybass mongo, redis 
+    if (typeof mongo === 'number' && !(redis && expire)) {
+      expire = mongo;
+      mongo = _mongo;
     }
 
+    if (typeof redis === 'number' && !expire) {
+      expire = redis;
+
+      // check if user bybass mongo
+      if (mongo instanceof RedisClient) {
+        redis = mongo;
+        mongo = _mongo;
+      }
+    }
+
+    if ((mongo instanceof MongoClient && mongo instanceof Promise)) {
+      throw new TypeError('mongo must be a MongoClient or a Promise');
+    }
+
+    this.mongo = mongo || _mongo;
+    // create redisWrapper
     this.redisWrapper = new RedisWrapper(redis, expire);
+    // set mode
     this.lazy = this.redisWrapper.expire === NO_EXPIRE ? false : true;
   }
 
@@ -31,7 +51,7 @@ class Wrapper {
   }
 
   db(dbName, options) {
-    if (!this.mongo || !this.mongo.isConnected()) {
+    if (!this.isConnected()) {
       throw new Error('Mongo Client must connect before create db');
     }
 
@@ -52,11 +72,11 @@ class Wrapper {
   }
 
   isConnected() {
-    if (!this.mongo.isConnected) {
+    if (!this.mongo) {
       return false;
     }
 
-    this.redis.on('connect', (error) => {
+    this.redisWrapper.client.on('connect', (error) => {
       if (error) {
         return false;
       }
