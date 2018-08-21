@@ -1,5 +1,4 @@
 const createHash = require('crypto').createHash;
-const isId = require('../ulti/check').isId;
 const LazyCollection = require('./lazy_collection');
 
 const HASH = 'hash';
@@ -8,112 +7,89 @@ const ZSET = 'zset';
 const STRING = 'string';
 
 class ThroughCollection extends LazyCollection {
-  //   async find(query, option) {
-  //     // Check special case where we are using an objectId
-  //     if (isId(query)) {
-  //       query = {
-  //         _id: query
-  //       };
-  //     }
+  async find(query, option) {
+    // Check special case where we are using an objectId
+    if (query && query._bsontype === 'ObjectID') {
+      query = {
+        _id: query
+      };
+    }
 
-  //     // create key for search/save
-  //     const key = createHash('md5')
-  //       .update(this.dbName)
-  //       .update(this.name)
-  //       .update(JSON.stringify(query))
-  //       .update(JSON.stringify(option))
-  //       .digest('hex');
+    // scan in redis fisrt
+    let result = [];
+    result = await executeQuery(query);
 
-  //     // scan in redis fisrt
-  //     const cacheData = await this.redisWrapper.search(key, 'set');
-  //     // if found, parse result back to JSON
-  //     if (cacheData.length > 0) {
-  //       const result = cacheData.map(raw => {
-  //         return JSON.parse(raw);
-  //       });
+    // if can't found in cache, try to find in lazy-cache mode
+    const result = await super.find(query, option);
+    // update (?)
+    return result;
+  }
 
-  //       return result;
-  //     }
+  async findOne(query, option) {
+    // find like find
+    const cursor = await super.findOne(query, option);
+    // update (?)    
+    return cursor;
+  }
 
-  //     // if can't found in cache, try to find in mongodb
-  //     const cursor = await this.collection.find(query, option);
-  //     const listDocuments = await cursor.toArray();
-  //     // save result into cache 
-  //     if (listDocuments && listDocuments.length > 0) {
-  //       const cacheData = listDocuments.map(doc => {
-  //         return JSON.stringify(doc);
-  //       });
+  async loadToCache() {
+    const allDocuments = await super.find().toArray();
+    for (let document in allDocuments) {
+      // save document
+      this.redisWrapper.save(document._id, document, STRING);
+      // save document's index
+      this.insertIndexs(document);
+    }
+  }
 
-  //       await this.redisWrapper.save(key, cacheData, 'set', this.expire);
-  //     }
+  // not done yet!!
+  insertIndexs(document) {
+    const setValue = `${document._id}`;
+    // clone new document, and remove it's id
+    const newDocument = {
+      ...document
+    };
+    delete(newDocument._id);
 
-  //     return listDocuments;
-  //   }
+    for (let field in newDocument) {
+      let key = `${collectionName}.${field}`;
+      let score = document[field];
+      const value = document[field];
 
-  //   async loadToCache() {
-  //     const allDocuments = await this.collection.find().toArray();
-  //     for (let doc in allDocuments) {
-  //       // this.redisWrapper.save(doc);
-  //     }
-  //   }
+      // store Date value in milisecond in zset
+      if (value.getTime || value._bsontype === 'Timestamp') {
+        score = value.getTime() || value.toNumber();
+        this.client.zadd(key, score, setValue);
+        continue;
+      }
 
-  //   createIndex(prefix, object, id) {
-  //     id = object._id || id;
+      // store numberic values to zset
+      if (!isNaN(value)) {
+        this.client.zadd(key, score, setValue);
+        continue;
+      }
 
-  //     if (!isNaN(object)) {
-  //       const key = `${prefix}:${object}`;
-  //       this.redisWrapper.save(key, id, ZSET);
-  //     }
-  //   }
+      // if value of field is nested object, create field's subObject
+      // then insert subObject to index
+      if (typeof value === 'object') {
+        insertIndexs(this.client, collectionName, subObj);
+        continue;
+      }
 
-  // }
-
-
-  // function insertIndexs(redisClient, collectionName, document) {
-  //   const id = `${document._id}`;
-  //   for (let field in document) {
-  //     //ignore _id field
-  //     if (field === '_id') {
-  //       continue;
-  //     }
-
-  //     const value = document[field];
-
-  //     // store Date value in milisecond in zset
-  //     if (value.getTime) {
-  //       const key = `${collectionName}.${field}`;
-  //       const time_ms = value.getTime();
-  //       redisClient.zadd(key, time_ms, id);
-  //       continue;
-  //     }
-
-  //     // store Timestamp in milisecon in zset
-  //     if (value._bsontype === 'Timestamp') {
-  //       const key = `${collectionName}.${field}`;
-  //       const time_ms = value.toNumber();
-  //       redisClient.zadd(key, time_ms, id);
-  //       continue;
-  //     }
-
-  //     // store numberic values to zset
-  //     if (!isNaN(value)) {
-  //       const key = `${collectionName}.${field}`;
-  //       redisClient.zadd(key, value, id);
-  //       continue;
-  //     }
-
-  //     // if value of field is object, create field's subObject
-  //     // then insert subObject to index
-  //     if (typeof value === 'object') {
-  //       let subObj = createChild(field, id, value);
-  //       insertIndexs(redisClient, collectionName, subObj);
-  //       continue;
-  //     }
-
-  //     // store orther type values in set
-  //     const key = `${collectionName}.${field}:${value}`;
-  //     redisClient.sadd(key, id);
-  //   }
+      // store orther type values in set
+      const string = `${key}:${value}`;
+      this.client.sadd(string, setValue);
+    }
+  }
 }
 
 module.exports = ThroughCollection;
+
+// function createIndex(prefix, object, id) {
+//   id = object._id || id;
+
+//   if (!isNaN(object)) {
+//     const key = `${prefix}:${object}`;
+//     this.redisWrapper.save(key, id, ZSET);
+//   }
+// }

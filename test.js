@@ -5,16 +5,17 @@ const client = Mongo.connect('mongodb://localhost:27017/demo', {
   useNewUrlParser: true
 });
 
-const _client = new Wrapper(120);
+const _client = new Wrapper(client, 120);
 _client.connect().then((client) => {
   const db = client.db('demo');
-  const collection = db.cacheCollection('demo');
-  // const result = collection.findOne().then((result) => {
-  //   console.log(result);
-  // });
+  const collection = db.cacheCollection('inventory');
   collection.find().then((result) => {
     console.log((result));
   });
+
+  // const result = collection.findOne().then((result) => {
+  //   console.log(result);
+  // });
   // const query = {
   //   item: 'postcard',
   //   status: 'A'
