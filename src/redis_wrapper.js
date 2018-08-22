@@ -1,12 +1,12 @@
-const {
-  RedisClient,
-  createClient
-} = require('redis');
-const promisify = require('util').promisify;
+const redis = require('redis');
+const promisifyAll = require('bluebird').promisifyAll;
+
+// add async to all redis's funtion
+promisifyAll(redis);
 
 // Constants
-const NO_COUNT = -1;
-const NO_EXPIRE = -1;
+const NO_COUNT = 0;
+const NO_EXPIRE = 0;
 const NO_MATCH = '*';
 
 const FIRST_CURSOR = '0';
@@ -24,18 +24,19 @@ class RedisWrapper {
    * @param {RedisClient} client 
    * @param {Number} expire 
    */
-  constructor(client, expire = NO_EXPIRE) {
-    if (client instanceof RedisClient) {
-      this.client = client;
-    } else {
-      this.client = createClient();
-    }
-
+  constructor(client, expire) {
+    // create client
+    this.client = client instanceof redis.RedisClient ? client : redis.createClient();
     this.client.on('error', (error) => {
       if (error) {
         throw error;
       }
     });
+
+    // check if user bypass client
+    if (typeof client === 'number' && expire === undefined) {
+      expire = client || NO_EXPIRE;
+    }
 
     if (isNaN(expire) || expire < NO_EXPIRE) {
       throw new TypeError('expire must be a positive Number');
@@ -51,51 +52,58 @@ class RedisWrapper {
    * @param {Number} count 
    * @param {Number} match 
    */
-  async search(key = '*', type = STRING, count = NO_COUNT, match = NO_MATCH) {
+  async search(key, type = STRING, count = NO_COUNT, match = NO_MATCH) {
     if (typeof key !== STRING) {
       throw new TypeError('key name must be a String');
     }
 
-    const redis = this.client;
-    const _key = JSON.stringify(key);
-    const _type = type.toLocaleLowerCase();
-    const _match = match instanceof String ? match : NO_MATCH;
-    const _count = count > 0 ? count : NO_COUNT;
+    if (typeof count !== 'number' || count < NO_COUNT) {
+      throw new TypeError('count must be an positive number');
+    }
+
+    // create new options
+    const newKey = JSON.stringify(key);
+    const newType = type.toLocaleLowerCase();
+    const newMatch = JSON.stringify(match);
+
     // create scan's query, command
+    let scan = this.client;
     let result = [];
-    let command = null;
     let query = [key, FIRST_CURSOR];
     let nextCursor = FIRST_CURSOR;
 
-    if (_match !== NO_MATCH) {
+    if (newMatch !== NO_MATCH) {
       query = [...query, 'MATCH', match];
     }
 
-    if (_count !== NO_COUNT) {
+    if (count !== NO_COUNT) {
       query = [...query, 'COUNT', count];
     }
 
-    if (_type === STRING) {
-      const get = promisify(redis.get).bind(redis);
-      return await get(_key);
+    // get String
+    if (newType === STRING) {
+      return await this.client.getAsync(newKey);
     }
 
-    switch (_type) {
-      case HASH:
-        command = promisify(redis.hscan).bind(redis);
-        break;
-      case SET:
-        command = promisify(redis.sscan).bind(redis);
-        break;
-      case ZSET:
-        command = promisify(redis.zscan).bind(redis);
-        break;
-      default:
-        throw new Error('type is not supported');
+    switch (newType) {
+    case HASH:
+      scan = scan.hscanAsync;
+      break;
+    case SET:
+      scan = scan.sscanAsync;
+      break;
+    case ZSET:
+      scan = scan.zscanAsync;
+      break;
+    default:
+      throw new Error('type is not supported');
     }
+
+    // bind client
+    scan = scan.bind(this.client);
 
     do {
-      const scanResult = await command(query);
+      const scanResult = await scan(query);
       // update query's nextCursor
       nextCursor = scanResult[NEXT_CURSOR_INDEX];
       query[1] = nextCursor;
@@ -115,54 +123,62 @@ class RedisWrapper {
    * @param {Object} data 
    * @param {String} type 
    */
-  async save(key = '', data = {}, type = STRING) {
-    let command, parameters;
-    const redis = this.client;
-    const _key = JSON.stringify(key);
-
-    // data should be a JSON
-    if (type === HASH) {
-      parameters = [];
-      for (let field in data) {
-        command = promisify(redis.hset).bind(redis);
-        parameters.push(_key, field, data[field]);
-      }
+  async save(key, data, type = STRING) {
+    if (!key) {
+      throw new TypeError('key must be a non-empty string');
     }
 
-    // data should be a JSON
-    if (type === ZSET) {
-      command = promisify(redis.zadd).bind(redis);
-      parameters = [_key];
+    if (typeof type !== 'string') {
+      throw new TypeError('type must be a string');
+    }
+
+    let saveCache = null;
+    let parameters = [];
+    const newKey = typeof key === 'string' ? key : JSON.stringify(key);
+
+    switch (type) {
+    case HASH:
+      parameters = [newKey];
+      for (let field in data) {
+        saveCache = this.client.hmsetAsync;
+        parameters.push(field, data[field]);
+      }
+      break;
+    case ZSET:
+      saveCache = this.client.zaddAsync;
+      parameters = [newKey];
 
       for (let field in data) {
         const score = data[field];
         const member = field;
         parameters.push(score, member);
       }
+      break;
+    case SET:
+      saveCache = this.client.saddAsync;
+      parameters = [newKey, ...data];
+      break;
+    case STRING:
+      saveCache = this.client.setAsync;
+      parameters = [newKey, JSON.stringify(data)];
+      break;
+    default:
+      throw new Error('type not support');
     }
 
-    // data should be an array of members
-    if (type === SET) {
-      command = promisify(redis.sadd).bind(redis);
-      parameters = [_key, ...data];
-    }
+    // bind client
+    saveCache = saveCache.bind(this.client);
 
-    // data can be anythings
-    if (type === STRING) {
-      command = promisify(redis.set).bind(redis);
-      parameters = [_key, JSON.stringify(data)];
-    }
-
-    // Execute the command
+    // Execute the saveCache
     try {
-      await command(parameters);
+      await saveCache(parameters);
     } catch (error) {
       throw error;
     }
 
     // Set expire time for cache
     if (this.expire !== NO_EXPIRE) {
-      redis.expire(_key, this.expire);
+      this.client.expire(newKey, this.expire);
     }
   }
 
