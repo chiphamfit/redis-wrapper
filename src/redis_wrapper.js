@@ -18,20 +18,20 @@ const ZSET = 'zset';
 const HASH = 'hash';
 const STRING = 'string';
 
-class RedisWrapper {
+class RedisWrapper extends redis.RedisClient {
   /**
    * Create a Redis Wrapper client
-   * @param {RedisClient} client 
-   * @param {Number} expire 
+   * @param {RedisClient} client A redis client
+   * @param {Number} expire Time to life of cache data
    */
   constructor(client, expire) {
-    // create client
-    this.client = client instanceof redis.RedisClient ? client : redis.createClient();
-    this.client.on('error', (error) => {
-      if (error) {
-        throw error;
+    super();
+    // copy client to this
+    if (client instanceof redis.RedisClient) {
+      for (let property in client) {
+        this[property] = client[property];
       }
-    });
+    }
 
     // check if user bypass client
     if (typeof client === 'number' && expire === undefined) {
@@ -100,7 +100,7 @@ class RedisWrapper {
     const newMatch = JSON.stringify(match);
 
     // create scan's query, command
-    let scan = this.client;
+    let scan;
     let result = [];
     let query = [key, FIRST_CURSOR];
     let nextCursor = FIRST_CURSOR;
@@ -115,25 +115,25 @@ class RedisWrapper {
 
     // get String
     if (newType === STRING) {
-      return await this.client.getAsync(newKey);
+      return await super.getAsync(newKey);
     }
 
     switch (newType) {
     case HASH:
-      scan = scan.hscanAsync;
+      scan = super.hscanAsync;
       break;
     case SET:
-      scan = scan.sscanAsync;
+      scan = super.sscanAsync;
       break;
     case ZSET:
-      scan = scan.zscanAsync;
+      scan = super.zscanAsync;
       break;
     default:
       throw new Error('type is not supported');
     }
 
-    // bind client
-    scan = scan.bind(this.client);
+    // binding
+    scan = scan.bind(this);
 
     do {
       const scanResult = await scan(query);
@@ -173,12 +173,12 @@ class RedisWrapper {
     case HASH:
       parameters = [newKey];
       for (let field in data) {
-        saveCache = this.client.hmsetAsync;
+        saveCache = super.hmsetAsync;
         parameters.push(field, data[field]);
       }
       break;
     case ZSET:
-      saveCache = this.client.zaddAsync;
+      saveCache = super.zaddAsync;
       parameters = [newKey];
 
       for (let field in data) {
@@ -188,11 +188,11 @@ class RedisWrapper {
       }
       break;
     case SET:
-      saveCache = this.client.saddAsync;
+      saveCache = super.saddAsync;
       parameters = [newKey, ...data];
       break;
     case STRING:
-      saveCache = this.client.setAsync;
+      saveCache = super.setAsync;
       parameters = [newKey, JSON.stringify(data)];
       break;
     default:
@@ -200,7 +200,7 @@ class RedisWrapper {
     }
 
     // bind client
-    saveCache = saveCache.bind(this.client);
+    saveCache = saveCache.bind(this);
 
     // Execute the saveCache
     try {
@@ -211,16 +211,16 @@ class RedisWrapper {
 
     // Set expire time for cache
     if (this.expire !== NO_EXPIRE) {
-      this.client.expire(newKey, this.expire);
+      super.expire(newKey, this.expire);
     }
   }
 
   delete(key) {
-    this.client.delete(key);
+    super.delete(key);
   }
 
   clearCache() {
-    return this.client.flushdb();
+    return super.flushdb();
   }
 }
 
