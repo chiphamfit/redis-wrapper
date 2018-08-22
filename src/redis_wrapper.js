@@ -80,7 +80,7 @@ class RedisWrapper {
 
   /**
    * Search value in redis by key
-   * @param {String} key 
+   * @param {String} key
    * @param {String} type 
    * @param {Number} count 
    * @param {Number} match 
@@ -223,20 +223,5 @@ class RedisWrapper {
     return this.client.flushdb();
   }
 }
-
-// /**
-//    * 
-//    * @param {Object} document 
-//    */
-//   async saveDocument(document) {
-//     if (typeof document !== 'object') {
-//       throw new TypeError('document must be a Object')
-//     }
-
-//     const key = JSON.stringify(document._id);
-//     const value = JSON.stringify(document);
-//     const command = promisify(this.client.set).bind(this.client);
-//     return await command(key, value);
-//   }
 
 module.exports = RedisWrapper;

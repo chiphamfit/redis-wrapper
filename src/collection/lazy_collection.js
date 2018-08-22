@@ -35,9 +35,10 @@ class LazyCollection {
   }
 
   /**
-   * Selects documents in a collection and returns a array to the selected documents
-   * @param {Object} query 
-   * @param {Object} option 
+   * Selects documents in a collection and returns an array to the selected documents
+   * @param {Object} query Optional. Specifies query selection criteria using query operators.
+   * @param {Object} option Optional. Specifies the fields to return using projection operators. Omit this parameter to return all fields in the matching document.
+   * @returns {Promise} Return a Promise of a document array
    */
   async find(query = {}, option = {}) {
     // Check special case where we are using an objectId
@@ -76,8 +77,9 @@ class LazyCollection {
    * according to the natural order which reflects the order of documents on the disk. 
    * In capped collections, natural order is the same as insertion order. 
    * If no document satisfies the query, the method returns null.
-   * @param {Object} query 
-   * @param {Object} option 
+   * @param {Object} query Optional. Specifies query selection criteria using query operators.
+   * @param {Object} option Optional. Specifies the fields to return using projection operators. Omit this parameter to return all fields in the matching document.
+   * @returns {Promise} Return a Promise of a document or null
    */
   async findOne(query = {}, option = {}) {
     // create key for search/save
