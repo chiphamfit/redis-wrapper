@@ -76,7 +76,7 @@ class Wrapper {
       return false;
     }
 
-    this.redisWrapper.client.on('connect', (error) => {
+    this.redisWrapper.on('connect', (error) => {
       if (error) {
         return false;
       }
