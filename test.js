@@ -13,6 +13,12 @@ _client.connect().then((client) => {
     console.log((result));
   });
 
+  // collection.deleteOne({
+  //   item: 'planner',
+  //   status: 'D'
+  // }, (err, obj) => {
+  //   console.log(obj);
+  // });
   // const result = collection.findOne().then((result) => {
   //   console.log(result);
   // });

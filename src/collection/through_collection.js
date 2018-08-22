@@ -1,12 +1,15 @@
-const createHash = require('crypto').createHash;
 const LazyCollection = require('./lazy_collection');
 
-const HASH = 'hash';
-const SET = 'set';
-const ZSET = 'zset';
+// const HASH = 'hash';
+// const SET = 'set';
+// const ZSET = 'zset';
 const STRING = 'string';
 
 class ThroughCollection extends LazyCollection {
+  async executeQuery(query) {
+    return query;
+  }
+
   async find(query, option) {
     // Check special case where we are using an objectId
     if (query && query._bsontype === 'ObjectID') {
@@ -17,10 +20,10 @@ class ThroughCollection extends LazyCollection {
 
     // scan in redis fisrt
     let result = [];
-    result = await executeQuery(query);
+    result = await this.executeQuery(query);
 
     // if can't found in cache, try to find in lazy-cache mode
-    const result = await super.find(query, option);
+    result = await super.find(query, option);
     // update (?)
     return result;
   }
@@ -47,12 +50,12 @@ class ThroughCollection extends LazyCollection {
     const setValue = `${document._id}`;
     // clone new document, and remove it's id
     const newDocument = {
-      ...document
+      document
     };
     delete(newDocument._id);
 
     for (let field in newDocument) {
-      let key = `${collectionName}.${field}`;
+      let key = `${this.name}.${field}`;
       let score = document[field];
       const value = document[field];
 
@@ -72,7 +75,7 @@ class ThroughCollection extends LazyCollection {
       // if value of field is nested object, create field's subObject
       // then insert subObject to index
       if (typeof value === 'object') {
-        insertIndexs(this.client, collectionName, subObj);
+        this.insertIndexs(this.client, this.name);
         continue;
       }
 
