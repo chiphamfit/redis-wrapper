@@ -1,4 +1,9 @@
-const createHash = require('crypto').createHash;
+const createHash = require('crypto').createHash('md5');
+const RedisWrapper = require('../redis_wrapper');
+
+// Constances
+const SET = 'set';
+const STRING = 'string';
 
 class LazyCollection {
   constructor(collection, redisWrapper) {
@@ -6,47 +11,34 @@ class LazyCollection {
       throw new TypeError('collection must be a Collection');
     }
 
-    this.dbName = collection.s.dbName;
-    this.name = collection.s.name;
+    if (!(redisWrapper instanceof RedisWrapper)) {
+      throw new TypeError('redisWrapper must be a instance of RedisWrapper');
+    }
+
     this.collection = collection;
     this.redisWrapper = redisWrapper;
+    this.dbName = collection.s.dbName;
+    this.name = collection.s.name;
+    this.namespace = `${this.dbName}:${this.name}`;
+    this.hash = createHash.update(this.namespace);
   }
 
-  async createIndex(fieldOrSpec, options) {
-    return await this.collection.createIndex(fieldOrSpec, options);
+  async clearCache() {
+    // search all cache key of this collection and  delete
+    const cacheList = await this.redisWrapper.search(this.namespace, SET);
+    cacheList.forEach(cache => {
+      this.redisWrapper.delete(cache);
+    });
+
+    // delete cache list
+    this.redisWrapper.delete(this.namespace);
   }
 
-  async createIndexs(indexSpecs, options) {
-    return await this.collection.createIndexs(indexSpecs, options);
-  }
-
-  async deleteMany(filter, options) {
-    this.redisWrapper.clearCache();
-    return await this.collection.deleteMany(filter, options);
-  }
-
-  async deleteOne(filter, options) {
-    this.redisWrapper.clearCache();
-    return await this.collection.deleteOne(filter, options);
-  }
-
-  async drop(options) {
-    this.redisWrapper.clearCache();
-    return await this.collection.drop(options);
-  }
-
-  async dropAllIndexes() {
-    return await this.collection.dropAllIndexes();
-  }
-
-  async dropIndex(indexName, options) {
-    return await this.collection.dropIndex(indexName, options);
-  }
-
-  async dropIndexs(options) {
-    return await this.collection.dropIndexs(options);
-  }
-
+  /**
+   * Selects documents in a collection and returns a array to the selected documents
+   * @param {Object} query 
+   * @param {Object} option 
+   */
   async find(query = {}, option = {}) {
     // Check special case where we are using an objectId
     if (query && query._bsontype === 'ObjectID') {
@@ -55,29 +47,16 @@ class LazyCollection {
       };
     }
 
-    // create key for search/save
-    const key = createHash('md5')
-      .update(this.dbName)
-      .update(this.name)
+    // create query_id for search/save
+    const query_id = this.hash
       .update(JSON.stringify(query))
       .update(JSON.stringify(option))
       .digest('hex');
 
-    // scan in redis fisrt
-    let listDocuments = [];
-    let cacheData = [];
-    try {
-      cacheData = await this.redisWrapper.search(key, 'set');
-    } catch (error) {
-      throw error;
-    }
-
-    // if cache hit, parse result back to JSON
-    if (cacheData.length > 0) {
-      listDocuments = cacheData.map(raw => {
-        return JSON.parse(raw);
-      });
-
+    // scan in cache fisrt
+    let listDocuments = await this.redisWrapper.searchLazyCache(query_id);
+    // if cache hit return result
+    if (listDocuments.length > 0) {
       return listDocuments;
     }
 
@@ -85,87 +64,131 @@ class LazyCollection {
     const cursor = await this.collection.find(query, option);
     listDocuments = await cursor.toArray();
 
-    // save result into cache 
-    if (listDocuments && listDocuments.length > 0) {
-      const cacheData = listDocuments.map(document => {
-        return JSON.stringify(document);
-      });
-      await this.redisWrapper.save(key, cacheData, 'set', this.expire);
-    }
+    // Create cache for query
+    await this.redisWrapper.saveLazyCache(query_id, listDocuments, this.namespace);
 
     return listDocuments;
   }
 
+  /**
+   * Returns one document that satisfies the specified query criteria.
+   * If multiple documents satisfy the query, this method returns the first document 
+   * according to the natural order which reflects the order of documents on the disk. 
+   * In capped collections, natural order is the same as insertion order. 
+   * If no document satisfies the query, the method returns null.
+   * @param {Object} query 
+   * @param {Object} option 
+   */
   async findOne(query = {}, option = {}) {
     // create key for search/save
-    const key = createHash('md5')
+    const query_id = this.hash
       .update('findOne')
-      .update(this.dbName)
-      .update(this.name)
       .update(JSON.stringify(query))
       .update(JSON.stringify(option))
       .digest('hex');
 
     // search in cache
-    let document = await this.redisWrapper.search(key, 'string');
+    let document = await this.redisWrapper.search(query_id, STRING);
     if (document) {
       return JSON.parse(document);
     }
 
-    // search in mongodb
+    // cache miss, search in mongodb
     document = await this.collection.findOne(query, option);
+
     if (document && document._id) {
-      this.redisWrapper.save(key, document, 'string');
+      // save query 
+      this.redisWrapper.save(query_id, document, STRING);
+      // update cache list
+      this.redisWrapper.save(this.namespace, [query_id], SET);
     }
 
     return document || null;
   }
 
-  async findOneAndDelete(filter, options) {
-    this.redisWrapper.clearCache();
-    return this.collection.findOneAndDelete(filter, options);
+  // Copy functions of Collection, convert them to Async
+
+  // Index
+  async createIndex(fieldOrSpec, options) {
+    return await this.collection.createIndex(fieldOrSpec, options);
   }
 
-  async findOneAndReplace(filter, replacement, options) {
-    this.redisWrapper.clearCache();
-    return this.collection.findOneAndReplace(filter, replacement, options);
+  async createIndexs(indexSpecs, options) {
+    return await this.collection.createIndexs(indexSpecs, options);
+  }
+  async dropIndex(indexName, options) {
+    return await this.collection.dropIndex(indexName, options);
   }
 
-  async findOneAndUpdate(filter, update, options) {
-    this.redisWrapper.clearCache();
-    return this.collection.findOneAndUpdate(filter, update, options);
+  async dropIndexs(options) {
+    return await this.collection.dropIndexs(options);
+  }
+
+  async dropAllIndexes() {
+    return await this.collection.dropAllIndexes();
   }
 
   async indexes(options) {
     return await this.collection.indexes(options);
   }
 
-  async insertMany(docs, options) {
-    this.redisWrapper.clearCache();
-    return await this.collection.insertMany(docs, options);
-  }
-
-  async insertOne(doc, options) {
-    this.redisWrapper.clearCache();
-    return await this.collection.insertOne(doc, options);
-  }
-
   async listIndexes(options) {
     return await this.collection.listIndexes(options);
   }
 
+  // Db
+  async deleteMany(filter, options) {
+    await this.clearCache();
+    return await this.collection.deleteMany(filter, options);
+  }
+
+  async deleteOne(filter, options) {
+    await this.clearCache();
+    return await this.collection.deleteOne(filter, options);
+  }
+
+  async drop(options) {
+    await this.clearCache();
+    return await this.collection.drop(options);
+  }
+
+  async findOneAndDelete(filter, options) {
+    await this.clearCache();
+    return this.collection.findOneAndDelete(filter, options);
+  }
+
+  async findOneAndReplace(filter, replacement, options) {
+    await this.clearCache();
+    return this.collection.findOneAndReplace(filter, replacement, options);
+  }
+
+  async findOneAndUpdate(filter, update, options) {
+    await this.clearCache();
+    return this.collection.findOneAndUpdate(filter, update, options);
+  }
+
+  async insertMany(docs, options) {
+    await this.clearCache();
+    return await this.collection.insertMany(docs, options);
+  }
+
+  async insertOne(doc, options) {
+    await this.clearCache();
+    return await this.collection.insertOne(doc, options);
+  }
+
   async replaceOne(filter, doc, options) {
-    this.redisWrapper.clearCache();
+    await this.clearCache();
     return await this.collection.replaceOne(filter, doc, options);
   }
 
   async updateMany(filter, update, options) {
-    this.redisWrapper.clearCache();
+    await this.clearCache();
     return await this.collection.updateMany(filter, update, options);
   }
 
   async updateOne(filter, update, options) {
-    this.redisWrapper.clearCache();
+    await this.clearCache();
     return await this.collection.updateOne(filter, update, options);
   }
 }
