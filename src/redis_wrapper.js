@@ -45,6 +45,39 @@ class RedisWrapper {
     this.expire = expire;
   }
 
+  async searchLazyCache(query_id) {
+    let cacheData = [];
+    let result = [];
+    try {
+      cacheData = await this.search(query_id, HASH);
+    } catch (error) {
+      throw error;
+    }
+
+    // if cache hit, parse result back to JSON
+    if (cacheData.length > 0) {
+      for (let i = 1, length = cacheData.length; i < length; i += 2) {
+        result.push(JSON.parse(cacheData[i]));
+      }
+    }
+
+    return result;
+  }
+
+
+  async saveLazyCache(query_id, result, namespace) {
+    // Create query set
+    await this.save(namespace, [query_id], SET);
+
+    // create hash to store query result
+    let hash = {};
+    result.map(document => {
+      hash[document._id] = JSON.stringify(document);
+    });
+
+    await this.save(query_id, hash, HASH, this.expire);
+  }
+
   /**
    * Search value in redis by key
    * @param {String} key 
