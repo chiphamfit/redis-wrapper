@@ -214,14 +214,6 @@ class RedisWrapper extends redis.RedisClient {
       super.expire(newKey, this.expire);
     }
   }
-
-  delete(key) {
-    super.delete(key);
-  }
-
-  clearCache() {
-    return super.flushdb();
-  }
 }
 
 module.exports = RedisWrapper;
