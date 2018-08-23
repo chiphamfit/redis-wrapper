@@ -55,7 +55,7 @@ class ThroughCollection extends LazyCollection {
       // Ignor special case when value is BSON type
       const type = value._bsontype || typeof value;
       const newPrefix = `${prefix}.${name}`;
-      const index_key = `${newPrefix}:${JSON.stringify(value)}`;
+      const index_key = `${newPrefix}:${value}`;
 
       // call recursion to index sub Object
       if (type === 'object') {

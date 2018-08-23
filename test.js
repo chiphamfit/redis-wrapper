@@ -12,6 +12,9 @@ const redis = Redis();
 const _client = new Wrapper(redis, client);
 _client.connect().then((client) => {
   const db = client.db('demo');
-  const collection = db.cacheCollection('complex');
+  const collection = db.cacheCollection('inventory');
   collection.initCacheDb();
+  client.redisWrapper.compare('$lt', 'demo.inventory.size.h', 11).then(val => {
+    console.log(val);
+  });
 });

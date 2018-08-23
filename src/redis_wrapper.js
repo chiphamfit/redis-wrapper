@@ -78,6 +78,48 @@ class RedisWrapper extends redis.RedisClient {
     await this.save(query_id, hash, HASH, this.expire);
   }
 
+  async compare(operator, key, value) {
+    let listIds = [];
+    let listDocuments = [];
+    let parameters = [key];
+    const INF = 'inf';
+    const NEG_INF = '-inf';
+
+    switch (operator) {
+    case '$eq':
+      return await super.scanAsync(`${key}:${value}`);
+    case '$gt':
+      parameters = [key, `(${value}`, INF];
+      break;
+    case '$gte':
+      parameters = [key, `${value}`, INF];
+      break;
+    case '$lt':
+      parameters = [key, NEG_INF, `(${value}`];
+      break;
+    case '$lte':
+      parameters = [key, NEG_INF, `${value}`];
+      break;
+    case '$ne':
+      listIds = await this.compare('$gt', key, value);
+      listIds = [...listIds, await this.compare('$lt', key, value)];
+      break;
+    default:
+      throw new Error('operator is not supported');
+    }
+
+    if (listIds.length === 0) {
+      listIds = await super.zrangebyscoreAsync(parameters);
+    }
+
+    for (let i in listIds) {
+      const document = await super.getAsync(listIds[i]);
+      listDocuments.push(JSON.parse(document));
+    }
+
+    return listDocuments;
+  }
+
   /**
    * Search value in redis by key
    * @param {String} key
