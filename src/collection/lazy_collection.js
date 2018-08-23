@@ -19,7 +19,7 @@ class LazyCollection {
     this.redisWrapper = redisWrapper;
     this.dbName = collection.s.dbName;
     this.name = collection.s.name;
-    this.namespace = `${this.dbName}:${this.name}`;
+    this.namespace = `${this.dbName}.${this.name}`;
     this.hash = createHash.update(this.namespace);
   }
 
@@ -62,8 +62,7 @@ class LazyCollection {
     }
 
     // if cache miss, try to find in mongodb
-    const cursor = await this.collection.find(query, option);
-    listDocuments = await cursor.toArray();
+    listDocuments = await this.collection.find(query, option).toArray();
 
     // Create cache for query
     await this.redisWrapper.saveLazyCache(query_id, listDocuments, this.namespace);
@@ -152,6 +151,10 @@ class LazyCollection {
   async drop(options) {
     await this.clearCache();
     return await this.collection.drop(options);
+  }
+
+  async nonCacheFind(query, option) {
+    return await this.collection.find(query, option);
   }
 
   async findOneAndDelete(filter, options) {
