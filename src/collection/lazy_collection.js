@@ -99,7 +99,7 @@ class LazyCollection {
 
     if (document && document._id) {
       // save query 
-      this.redisWrapper.save(query_id, document, STRING);
+      this.redisWrapper.set(query_id, document);
       // update cache list
       this.redisWrapper.save(this.namespace, [query_id], SET);
     }
@@ -151,10 +151,6 @@ class LazyCollection {
   async drop(options) {
     await this.clearCache();
     return await this.collection.drop(options);
-  }
-
-  async nonCacheFind(query, option) {
-    return await this.collection.find(query, option);
   }
 
   async findOneAndDelete(filter, options) {
