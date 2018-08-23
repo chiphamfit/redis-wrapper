@@ -1,17 +1,12 @@
 const LazyCollection = require('./lazy_collection');
 
-// const HASH = 'hash';
-// const SET = 'set';
-// const ZSET = 'zset';
-const STRING = 'string';
-
 class ThroughCollection extends LazyCollection {
   async executeQuery(query) {
     return query;
   }
 
   async find(query, option) {
-    // Check special case where we are using an objectId
+    // Check special case where we are using an ObjectId
     if (query && query._bsontype === 'ObjectID') {
       query = {
         _id: query
@@ -35,55 +30,79 @@ class ThroughCollection extends LazyCollection {
     return cursor;
   }
 
-  async loadToCache() {
-    const allDocuments = await super.find().toArray();
-    for (let document in allDocuments) {
-      // save document
-      this.redisWrapper.save(document._id, document, STRING);
-      // save document's index
-      this.insertIndexs(document);
-    }
+  async initCacheDb() {
+    // find all document on mongodb
+    const allDocuments = await this.collection.find().toArray();
+
+    // save documents as string and index it
+    allDocuments.forEach(document => {
+      const id = JSON.stringify(document._id);
+      const body = {
+        ...document
+      };
+      delete body._id;
+
+      // save document as string
+      this.redisWrapper.set(id, JSON.stringify(document));
+      // Indexing document
+      this.indexing(id, body, this.namespace);
+    });
   }
 
-  // not done yet!!
-  insertIndexs(document) {
-    const setValue = `${document._id}`;
-    // clone new document, and remove it's id
-    const newDocument = {
-      document
-    };
-    delete(newDocument._id);
+  indexing(id, body, prefix) {
+    for (let name in body) {
+      const value = body[name];
+      // Ignor special case when value is BSON type
+      const type = value._bsontype || typeof value;
+      const newPrefix = `${prefix}.${name}`;
+      const index_key = `${newPrefix}:${JSON.stringify(value)}`;
 
-    for (let field in newDocument) {
-      let key = `${this.name}.${field}`;
-      let score = document[field];
-      const value = document[field];
-
-      // store Date value in milisecond in zset
-      if (value.getTime || value._bsontype === 'Timestamp') {
-        score = value.getTime() || value.toNumber();
-        this.client.zadd(key, score, setValue);
+      // call recursion to index sub Object
+      if (type === 'object') {
+        this.indexing(id, value, newPrefix);
         continue;
       }
 
-      // store numberic values to zset
-      if (!isNaN(value)) {
-        this.client.zadd(key, score, setValue);
-        continue;
+      // Indexing
+      this.redisWrapper.sadd(index_key, id);
+      // Create additional index to comparison query
+      const score = toNumber(value);
+      if (score) {
+        this.redisWrapper.zadd(newPrefix, score, id);
       }
-
-      // if value of field is nested object, create field's subObject
-      // then insert subObject to index
-      if (typeof value === 'object') {
-        this.insertIndexs(this.client, this.name);
-        continue;
-      }
-
-      // store orther type values in set
-      const string = `${key}:${value}`;
-      this.client.sadd(string, setValue);
     }
   }
+}
+
+/**
+ * Convert an object to number
+ * @param {*} value 
+ */
+function toNumber(value) {
+  let number = Number(value);
+  const type = value._bsontype || typeof value;
+
+  if (typeof number === 'number') {
+    return number;
+  }
+
+  if (type === 'Timestamp') {
+    return value.toNumber();
+  }
+
+  if (type === 'Date') {
+    return value.getTime();
+  }
+
+  if (type === 'string') {
+    number = 0;
+    for (let char in value) {
+      number += char.charCodeAt(0);
+    }
+    return number;
+  }
+
+  return number;
 }
 
 module.exports = ThroughCollection;
@@ -95,4 +114,14 @@ module.exports = ThroughCollection;
 //     const key = `${prefix}:${object}`;
 //     this.redisWrapper.save(key, id, ZSET);
 //   }
+// }
+
+// /**
+//  * Detect typeof variable
+//  * @param {*} variable variable to check
+//  */
+// function documentType(variable) {
+//   if (variable === null) return 'null';
+//   if (variable !== Object(variable)) return typeof v;
+//   return ({}).toString.call(variable).slice(8, -1).toLowerCase();
 // }
