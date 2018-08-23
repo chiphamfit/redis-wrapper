@@ -7,18 +7,17 @@ const ThroughCollection = require('./collection/through_collection');
 
 // Constants
 const NO_EXPIRE = -1;
-const URL = 'mongodb://localhost:27017/test';
+const URL = 'mongodb://localhost:27017/';
 const OPTION = {
   useNewUrlParser: true
 };
 
 class Wrapper {
   constructor(mongo, redis, expire) {
-    const _mongo = MongoClient.connect(URL, OPTION);
     // check if user bybass mongo, redis 
     if (typeof mongo === 'number' && !(redis && expire)) {
       expire = mongo;
-      mongo = _mongo;
+      mongo = undefined;
     }
 
     if (typeof redis === 'number' && !expire) {
@@ -27,15 +26,16 @@ class Wrapper {
       // check if user bybass mongo
       if (mongo instanceof RedisClient) {
         redis = mongo;
-        mongo = _mongo;
+        mongo = undefined;
       }
     }
 
-    if ((mongo instanceof MongoClient && mongo instanceof Promise)) {
-      throw new TypeError('mongo must be a MongoClient or a Promise');
+    if (!(mongo instanceof MongoClient || mongo instanceof Promise)) {
+      throw new TypeError('mongo must be a MongoClient');
     }
 
-    this.mongo = mongo || _mongo;
+    // create mongoClient
+    this.mongo = mongo || MongoClient.connect(URL, OPTION);
     // create redisWrapper
     this.redisWrapper = new RedisWrapper(redis, expire);
     // set mode
