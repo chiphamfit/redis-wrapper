@@ -6,7 +6,7 @@ const LazyCollection = require('./collection/lazy_collection');
 const ThroughCollection = require('./collection/through_collection');
 
 // Constants
-const NO_EXPIRE = -1;
+const NO_EXPIRE = 0;
 const URL = 'mongodb://localhost:27017/';
 const OPTION = {
   useNewUrlParser: true
@@ -14,30 +14,42 @@ const OPTION = {
 
 class Wrapper {
   constructor(mongo, redis, expire) {
-    // check if user bybass mongo, redis 
-    if (typeof mongo === 'number' && !(redis && expire)) {
-      expire = mongo;
-      mongo = undefined;
+    let newMongo = undefined;
+    let newRedis = undefined;
+    let newExpire = expire || NO_EXPIRE;
+
+    // Overload constructor
+    // Swapped clients
+    if (mongo instanceof RedisClient && redis instanceof MongoClient) {
+      newMongo = redis;
+      newRedis = mongo;
     }
 
-    if (typeof redis === 'number' && !expire) {
-      expire = redis;
-
-      // check if user bybass mongo
-      if (mongo instanceof RedisClient) {
-        redis = mongo;
-        mongo = undefined;
+    // Missing arguments
+    if (expire === NO_EXPIRE) {
+      // check if user bybass mongo, redis 
+      if (typeof mongo === 'number' && redis === undefined) {
+        newExpire = mongo;
+      } else if (mongo instanceof RedisClient && typeof redis === 'number') {
+        // check if user bybass mongo
+        newExpire = redis;
+        newRedis = mongo;
+      } else if (typeof redis === 'number') {
+        // check if user bybass redis
+        newExpire = redis;
       }
     }
 
-    if (!(mongo instanceof MongoClient || mongo instanceof Promise)) {
+    newMongo = newMongo || MongoClient.connect(URL, OPTION);
+
+    if (!(newMongo instanceof MongoClient) && !(newMongo instanceof Promise)) {
       throw new TypeError('mongo must be a MongoClient');
     }
 
     // create mongoClient
-    this.mongo = mongo || MongoClient.connect(URL, OPTION);
+    this.mongo = newMongo;
     // create redisWrapper
-    this.redisWrapper = new RedisWrapper(redis, expire);
+    this.redisWrapper = new RedisWrapper(newRedis, newExpire);
     // set mode
     this.lazy = this.redisWrapper.expire === NO_EXPIRE ? false : true;
   }
@@ -83,10 +95,6 @@ class Wrapper {
     });
 
     return this.mongo.isConnected();
-  }
-
-  async clearCache() {
-    await this.redisWrapper.clearCache();
   }
 }
 
