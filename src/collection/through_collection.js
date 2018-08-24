@@ -2,10 +2,18 @@ const LazyCollection = require('./lazy_collection');
 
 class ThroughCollection extends LazyCollection {
   async executeQuery(query) {
+    const cursor = [];
+
+    // dummy result
     return query;
   }
 
-  async find(query, option) {
+  applyOptions(cursor, options) {
+    // dummy result
+    return [cursor, options];
+  }
+
+  async find(query, options) {
     // Check special case where we are using an ObjectId
     if (query && query._bsontype === 'ObjectID') {
       query = {
@@ -14,12 +22,16 @@ class ThroughCollection extends LazyCollection {
     }
 
     // scan in redis fisrt
-    let result = [];
-    result = await this.executeQuery(query);
+    const cursor = await this.executeQuery(query);
+
+    // Apply Options for cursor
+    const result = this.applyOptions(cursor, options);
 
     // if can't found in cache, try to find in lazy-cache mode
-    result = await super.find(query, option);
-    // update (?)
+    if (result.length === 0) {
+      return await super.find(query, options);
+    }
+
     return result;
   }
 
@@ -52,76 +64,43 @@ class ThroughCollection extends LazyCollection {
   indexing(id, body, prefix) {
     for (let name in body) {
       const value = body[name];
-      // Ignor special case when value is BSON type
+      // Ignor special case type = 'object' when value is additional BSON type
       const type = value._bsontype || typeof value;
-      const newPrefix = `${prefix}.${name}`;
-      const index_key = `${newPrefix}:${value}`;
+      const index_key = `${prefix}.${name}`;
 
       // call recursion to index sub Object
       if (type === 'object') {
-        this.indexing(id, value, newPrefix);
+        this.indexing(id, value, index_key);
         continue;
       }
 
       // Indexing
-      this.redisWrapper.sadd(index_key, id);
-      // Create additional index to comparison query
-      const score = toNumber(value);
-      if (score) {
-        this.redisWrapper.zadd(newPrefix, score, id);
-      }
+      const score = hashCode(value);
+      this.redisWrapper.zadd(index_key, score, id);
     }
   }
 }
 
 /**
- * Convert an object to number
+ * Convert an object's value to 32-bit int base on its stringify
  * @param {*} value 
+ * @returns a 32-bit integer
  */
-function toNumber(value) {
-  let number = Number(value);
-  const type = value._bsontype || typeof value;
-
-  if (typeof number === 'number') {
-    return number;
+function hashCode(value) {
+  // Stringify value and convert it to number by its charCode
+  const str_value = typeof value !== 'string' ? JSON.stringify(value) : value;
+  let hash = 0;
+  if (str_value.length === 0) {
+    return hash;
   }
 
-  if (type === 'Timestamp') {
-    return value.toNumber();
+  for (let i = 0, length = str_value.length; i < length; i++) {
+    const char = str_value.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0; // convert hash to 32-bit int
   }
 
-  if (type === 'Date') {
-    return value.getTime();
-  }
-
-  if (type === 'string') {
-    number = 0;
-    for (let char in value) {
-      number += char.charCodeAt(0);
-    }
-    return number;
-  }
-
-  return number;
+  return hash;
 }
 
 module.exports = ThroughCollection;
-
-// function createIndex(prefix, object, id) {
-//   id = object._id || id;
-
-//   if (!isNaN(object)) {
-//     const key = `${prefix}:${object}`;
-//     this.redisWrapper.save(key, id, ZSET);
-//   }
-// }
-
-// /**
-//  * Detect typeof variable
-//  * @param {*} variable variable to check
-//  */
-// function documentType(variable) {
-//   if (variable === null) return 'null';
-//   if (variable !== Object(variable)) return typeof v;
-//   return ({}).toString.call(variable).slice(8, -1).toLowerCase();
-// }
