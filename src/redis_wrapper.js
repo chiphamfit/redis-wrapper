@@ -5,6 +5,9 @@ const promisifyAll = require('bluebird').promisifyAll;
 promisifyAll(redis);
 
 // Constants
+const INF = 'inf';
+const NEG_INF = '-inf';
+
 const NO_COUNT = 0;
 const NO_EXPIRE = 0;
 const NO_MATCH = '*';
@@ -65,7 +68,6 @@ class RedisWrapper extends redis.RedisClient {
     return result;
   }
 
-
   async saveLazyCache(query_id, result, namespace) {
     // Create query set
     await this.save(namespace, [query_id], SET);
@@ -79,18 +81,14 @@ class RedisWrapper extends redis.RedisClient {
     await this.save(query_id, hash, HASH, this.expire);
   }
 
-
   // Through's function 
   async compare(key, value, operator = '$eq') {
     let listDocuments = [];
-    let parameters = [key];
-    const INF = 'inf';
-    const NEG_INF = '-inf';
+    let range = [key, NEG_INF, INF];
+
 
     if (operator === '$in') {
-      if (!(value instanceof Array)) {
-        throw new TypeError('value must be an array');
-      }
+      value = value instanceof Array ? value : [value];
 
       for (let i in value) {
         const eqDocuments = await this.compare(key, value[i], '$eq');
@@ -101,38 +99,76 @@ class RedisWrapper extends redis.RedisClient {
     }
 
     if (operator === '$ne') {
-      const greatThan = await this.compare(key, value, '$gt');
-      const lessThan = await this.compare(key, value, '$lt');
-      listDocuments.push(...greatThan, ...lessThan);
+      const gtDocuments = await this.compare(key, value, '$gt');
+      const ltDocuments = await this.compare(key, value, '$lt');
+      listDocuments.push(...gtDocuments, ...ltDocuments);
       return listDocuments;
     }
 
-
+    // Need optimize
     if (operator === '$nin') {
-      // 
+      if (!(value instanceof Array)) {
+        return await this.compare(key, value, '$ne');
+      }
+
+      if (value.length === 1) {
+        return await this.compare(key, value[0], '$ne');
+      }
+
+      value = value.sort();
+      let nin_range = [];
+
+      // Create range of score to search
+      for (let i = 0, length = value.length; i < length - 1; i++) {
+        let min = `(${value[i]}`;
+        let max = `(${value[i + 1]}` || INF;
+
+        if (i === 0) {
+          nin_range.push([key, NEG_INF, min]);
+        }
+
+        nin_range.push([key, min, max]);
+
+        if (i === length - 2) {
+          nin_range.push([key, max, INF]);
+        }
+      }
+
+      const listIds = [];
+      for (let i in nin_range) {
+        const rangeScan = await this.zrangebyscoreAsync(nin_range[i]);
+        listIds.push(...rangeScan);
+      }
+
+      for (let i in listIds) {
+        const document = await super.getAsync(listIds[i]);
+        listDocuments.push(JSON.parse(document));
+      }
+
+      return listDocuments;
     }
 
     switch (operator) {
     case '$eq':
-      parameters = [key, `${value}`, `${value}`];
+      range = [key, `${value}`, `${value}`];
       break;
     case '$gt':
-      parameters = [key, `(${value}`, INF];
+      range = [key, `(${value}`, INF];
       break;
     case '$gte':
-      parameters = [key, `${value}`, INF];
+      range = [key, `${value}`, INF];
       break;
     case '$lt':
-      parameters = [key, NEG_INF, `(${value}`];
+      range = [key, NEG_INF, `(${value}`];
       break;
     case '$lte':
-      parameters = [key, NEG_INF, `${value}`];
+      range = [key, NEG_INF, `${value}`];
       break;
     default:
       throw new Error('operator is not supported');
     }
 
-    const listIds = await super.zrangebyscoreAsync(parameters);
+    const listIds = await super.zrangebyscoreAsync(range);
 
     for (let i in listIds) {
       const document = await super.getAsync(listIds[i]);
