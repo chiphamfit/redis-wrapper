@@ -81,53 +81,41 @@ class RedisWrapper extends redis.RedisClient {
 
 
   // Through's function 
-  async compare(key, value, operator = '') {
+  async compare(key, value, operator = '$eq') {
     let listDocuments = [];
     let parameters = [key];
     const INF = 'inf';
     const NEG_INF = '-inf';
-
-
-    if (operator === '$eq' || operator === '') {
-      const listIds = await this.search(`${key}:${value}`, SET);
-
-      // for each id get its value in string
-      for (let i in listIds) {
-        const document = await this.getAsync(listIds[i]);
-        listDocuments.push(JSON.parse(document));
-      }
-
-      return listDocuments;
-    }
 
     if (operator === '$in') {
       if (!(value instanceof Array)) {
         throw new TypeError('value must be an array');
       }
 
-      let listIds = [];
-      // search list id in index
       for (let i in value) {
-        listIds = await this.search(`${key}:${value[i]}`, SET);
-      }
-
-      // for each id get its value in string
-      for (let i in listIds) {
-        const document = await this.getAsync(listIds[i]);
-        listDocuments.push(JSON.parse(document));
+        const eqDocuments = await this.compare(key, value[i], '$eq');
+        listDocuments.push(...eqDocuments);
       }
 
       return listDocuments;
     }
 
     if (operator === '$ne') {
-      const gtDocumnets = await this.compare('$gt', key, value);
-      const ltDocuments = await this.compare('$lt', key, value);
-      listDocuments.push(...gtDocumnets, ...ltDocuments);
+      const greatThan = await this.compare(key, value, '$gt');
+      const lessThan = await this.compare(key, value, '$lt');
+      listDocuments.push(...greatThan, ...lessThan);
       return listDocuments;
     }
 
+
+    if (operator === '$nin') {
+      // 
+    }
+
     switch (operator) {
+    case '$eq':
+      parameters = [key, `${value}`, `${value}`];
+      break;
     case '$gt':
       parameters = [key, `(${value}`, INF];
       break;
