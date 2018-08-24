@@ -3,7 +3,6 @@ const RedisWrapper = require('../redis_wrapper');
 
 // Constances
 const SET = 'set';
-const STRING = 'string';
 
 class LazyCollection {
   constructor(collection, redisWrapper) {
@@ -89,7 +88,7 @@ class LazyCollection {
       .digest('hex');
 
     // search in cache
-    let document = await this.redisWrapper.search(query_id, STRING);
+    let document = await this.redisWrapper.getAsync(query_id);
     if (document) {
       return JSON.parse(document);
     }
