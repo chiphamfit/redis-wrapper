@@ -45,6 +45,7 @@ class RedisWrapper extends redis.RedisClient {
     this.expire = expire;
   }
 
+  // lazy cache's function 
   async searchLazyCache(query_id) {
     let cacheData = [];
     let result = [];
@@ -78,16 +79,55 @@ class RedisWrapper extends redis.RedisClient {
     await this.save(query_id, hash, HASH, this.expire);
   }
 
-  async compare(operator, key, value) {
-    let listIds = [];
+
+  // Through's function 
+  async compare(key, value, operator = '') {
     let listDocuments = [];
     let parameters = [key];
     const INF = 'inf';
     const NEG_INF = '-inf';
 
+
+    if (operator === '$eq' || operator === '') {
+      const listIds = await this.search(`${key}:${value}`, SET);
+
+      // for each id get its value in string
+      for (let i in listIds) {
+        const document = await this.getAsync(listIds[i]);
+        listDocuments.push(JSON.parse(document));
+      }
+
+      return listDocuments;
+    }
+
+    if (operator === '$in') {
+      if (!(value instanceof Array)) {
+        throw new TypeError('value must be an array');
+      }
+
+      let listIds = [];
+      // search list id in index
+      for (let i in value) {
+        listIds = await this.search(`${key}:${value[i]}`, SET);
+      }
+
+      // for each id get its value in string
+      for (let i in listIds) {
+        const document = await this.getAsync(listIds[i]);
+        listDocuments.push(JSON.parse(document));
+      }
+
+      return listDocuments;
+    }
+
+    if (operator === '$ne') {
+      const gtDocumnets = await this.compare('$gt', key, value);
+      const ltDocuments = await this.compare('$lt', key, value);
+      listDocuments.push(...gtDocumnets, ...ltDocuments);
+      return listDocuments;
+    }
+
     switch (operator) {
-    case '$eq':
-      return await super.scanAsync(`${key}:${value}`);
     case '$gt':
       parameters = [key, `(${value}`, INF];
       break;
@@ -100,17 +140,11 @@ class RedisWrapper extends redis.RedisClient {
     case '$lte':
       parameters = [key, NEG_INF, `${value}`];
       break;
-    case '$ne':
-      listIds = await this.compare('$gt', key, value);
-      listIds = [...listIds, await this.compare('$lt', key, value)];
-      break;
     default:
       throw new Error('operator is not supported');
     }
 
-    if (listIds.length === 0) {
-      listIds = await super.zrangebyscoreAsync(parameters);
-    }
+    const listIds = await super.zrangebyscoreAsync(parameters);
 
     for (let i in listIds) {
       const document = await super.getAsync(listIds[i]);
@@ -126,9 +160,10 @@ class RedisWrapper extends redis.RedisClient {
    * @param {String} type 
    * @param {Number} count 
    * @param {Number} match 
+   * @returns {Array} Returns an array of document's id
    */
-  async search(key, type = STRING, count = NO_COUNT, match = NO_MATCH) {
-    if (typeof key !== STRING) {
+  async search(key, type = SET, count = NO_COUNT, match = NO_MATCH) {
+    if (typeof key !== 'string') {
       throw new TypeError('key name must be a String');
     }
 
@@ -136,10 +171,8 @@ class RedisWrapper extends redis.RedisClient {
       throw new TypeError('count must be an positive number');
     }
 
-    // create new options
-    const newKey = JSON.stringify(key);
-    const newType = type.toLocaleLowerCase();
-    const newMatch = JSON.stringify(match);
+    // standardize options
+    type = type.toLocaleLowerCase();
 
     // create scan's query, command
     let scan;
@@ -147,7 +180,8 @@ class RedisWrapper extends redis.RedisClient {
     let query = [key, FIRST_CURSOR];
     let nextCursor = FIRST_CURSOR;
 
-    if (newMatch !== NO_MATCH) {
+    if (match !== NO_MATCH) {
+      match = JSON.stringify(match);
       query = [...query, 'MATCH', match];
     }
 
@@ -155,12 +189,7 @@ class RedisWrapper extends redis.RedisClient {
       query = [...query, 'COUNT', count];
     }
 
-    // get String
-    if (newType === STRING) {
-      return await super.getAsync(newKey);
-    }
-
-    switch (newType) {
+    switch (type) {
     case HASH:
       scan = super.hscanAsync;
       break;
