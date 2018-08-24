@@ -82,16 +82,24 @@ class RedisWrapper extends redis.RedisClient {
   }
 
   // Through's function 
-  async compare(key, value, operator = '$eq') {
+
+  /**
+   * Find all document in zset that suitable the condition
+   * @param {String} key The index key
+   * @param {*} condition The value of comparison
+   * @param {String} operator Comparison operator
+   * @returns {Array} an Array of documents
+   */
+  async compare(key, condition, operator = '$eq') {
     let listDocuments = [];
     let range = [key, NEG_INF, INF];
 
 
     if (operator === '$in') {
-      value = value instanceof Array ? value : [value];
+      condition = condition instanceof Array ? condition : [condition];
 
-      for (let i in value) {
-        const eqDocuments = await this.compare(key, value[i], '$eq');
+      for (let i in condition) {
+        const eqDocuments = await this.compare(key, condition[i], '$eq');
         listDocuments.push(...eqDocuments);
       }
 
@@ -99,29 +107,29 @@ class RedisWrapper extends redis.RedisClient {
     }
 
     if (operator === '$ne') {
-      const gtDocuments = await this.compare(key, value, '$gt');
-      const ltDocuments = await this.compare(key, value, '$lt');
+      const gtDocuments = await this.compare(key, condition, '$gt');
+      const ltDocuments = await this.compare(key, condition, '$lt');
       listDocuments.push(...gtDocuments, ...ltDocuments);
       return listDocuments;
     }
 
     // Need optimize
     if (operator === '$nin') {
-      if (!(value instanceof Array)) {
-        return await this.compare(key, value, '$ne');
+      if (!(condition instanceof Array)) {
+        return await this.compare(key, condition, '$ne');
       }
 
-      if (value.length === 1) {
-        return await this.compare(key, value[0], '$ne');
+      if (condition.length === 1) {
+        return await this.compare(key, condition[0], '$ne');
       }
 
-      value = value.sort();
+      condition = condition.sort();
       let nin_range = [];
 
       // Create range of score to search
-      for (let i = 0, length = value.length; i < length - 1; i++) {
-        let min = `(${value[i]}`;
-        let max = `(${value[i + 1]}` || INF;
+      for (let i = 0, length = condition.length; i < length - 1; i++) {
+        let min = `(${condition[i]}`;
+        let max = `(${condition[i + 1]}` || INF;
 
         if (i === 0) {
           nin_range.push([key, NEG_INF, min]);
@@ -150,19 +158,19 @@ class RedisWrapper extends redis.RedisClient {
 
     switch (operator) {
     case '$eq':
-      range = [key, `${value}`, `${value}`];
+      range = [key, `${condition}`, `${condition}`];
       break;
     case '$gt':
-      range = [key, `(${value}`, INF];
+      range = [key, `(${condition}`, INF];
       break;
     case '$gte':
-      range = [key, `${value}`, INF];
+      range = [key, `${condition}`, INF];
       break;
     case '$lt':
-      range = [key, NEG_INF, `(${value}`];
+      range = [key, NEG_INF, `(${condition}`];
       break;
     case '$lte':
-      range = [key, NEG_INF, `${value}`];
+      range = [key, NEG_INF, `${condition}`];
       break;
     default:
       throw new Error('operator is not supported');
