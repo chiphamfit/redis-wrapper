@@ -2,6 +2,9 @@ const Wrapper = require('./src/wrapper');
 const Mongo = require('mongodb').MongoClient;
 const Redis = require('redis').createClient;
 
+const standarizeQuery = require('./src/collection/through_collection')
+  .standarizeQuery;
+
 const client = Mongo.connect(
   'mongodb://localhost:27017/demo',
   {
@@ -22,23 +25,39 @@ _client.connect().then(client => {
       // console.log(val);
     });
 
-  const abc = collection.standarizeQuery({
-    $and: [
-      { a: 'abc' },
-      {
-        $eq: {
-          b: 'asda',
-          c: 12312,
-          d: {
-            e: 1232131
-          }
-        }
+  const abc = standarizeQuery(
+    {
+      item: 'paper',
+      name: {
+        $not: { poro: 123 }
+      },
+      some: 'abcdef',
+      label: {
+        $nin: ['a', 'b', 'c']
       }
-    ],
-    some: 'abcdef'
-  });
+    },
+    'nameholder'
+  );
 
-  console.log(abc);
   console.log(JSON.stringify(abc));
-  console.log(abc[0].$and[1].$or);
+  abc.forEach(element => {
+    // console.log(JSON.stringify(element));
+  });
+  // console.log(JSON.stringify(abc));
+  // console.log(abc[0].$and[1].$or);
 });
+
+// [
+//   ,
+//   {
+//     $eq: [
+//       { b: 'asda' },
+//       { c: 12312 },
+//       {
+//         d: {
+//           e: 1232131
+//         }
+//       }
+//     ]
+//   }
+// ],

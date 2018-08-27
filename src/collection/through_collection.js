@@ -1,43 +1,67 @@
 const LazyCollection = require('./lazy_collection');
 
+const COMPLEX_COMPARISON = ['$in', '$nin'];
+const COMPARISON = ['$eq', '$ne', '$lt', '$lte', '$gt', '$gte'];
+const LOGICAL = ['$and', '$or', '$nor', '$not'];
+const OPERATORS = [...COMPLEX_COMPARISON, ...COMPARISON, ...LOGICAL];
+
 class ThroughCollection extends LazyCollection {
-  async executeQuery(query) {
-    if (!(query instanceof Object)) {
-      throw new TypeError('query must be an object');
+  /**
+   * Execute the standard query
+   * @param {Array} query A standardized query
+   * @returns {Array} An array of documents find by query
+   */
+  async executeQuery(standardQuery) {
+    // Make sure that query is an array
+    if (!(standardQuery instanceof Array)) {
+      standardQuery = [standardQuery];
     }
 
-    let cursor = new Set();
+    let cursor = [];
 
-    query.forEach(condition => {
-      if ('$and' in condition) {
-        //
-      }
+    // Execute every single query and join them results together
+    for (let i in standardQuery) {
+      const query = standardQuery[i];
+      for (let key in query) {
+        switch (key) {
+        case '$and':
+          // ignore
+          break;
+        case '$or':
+          // do or
+          break;
+        case '$not':
+          // add '$nin' maybe
+          break;
+        case '$nor':
+          break;
+        }
 
-      if ('$or' in condition) {
-        //
-      }
+        if (COMPARISON.indexOf(key) > 0) {
+          let comparison = query[key];
+          const operator = key;
+          // Make sure comparison is an Array
+          if (!(comparison instanceof Array)) {
+            comparison = [comparison];
+          }
+        }
 
-      if ('$not' in condition) {
-        //
+        const queryResult = await this.redisWrapper.compare(key, query[key]);
+        cursor.push(...queryResult);
       }
-
-      if ('$nor' in condition) {
-        //
-      }
-
-      for (let property in condition) {
-        // and
-        const value = query[property];
-        const score = this.hashCode(value);
-        const index_key = `${this.namespace}.${property}`;
-        // join result
-        cursor.add(...documentsByProperty);
-      }
-    });
+    }
 
     // convert cursor from set to array
-    return [...cursor];
+    return cursor;
   }
+
+  and() {}
+
+  or() {}
+
+  not() {}
+
+  xor() {}
 
   applyOptions(cursor, options) {
     // dummy result
@@ -61,12 +85,12 @@ class ThroughCollection extends LazyCollection {
     }
 
     // Standardize the query
-    const standar_query = this.standarizeQuery(query);
+    const standard_query = this.standarizeQuery(query);
 
     // Standardize the options
 
     // Find in cache first
-    const cursor = await this.executeQuery(standar_query);
+    const cursor = await this.executeQuery(standard_query);
 
     // Apply Options for cursor
     const result = this.applyOptions(cursor, options);
@@ -120,7 +144,8 @@ class ThroughCollection extends LazyCollection {
       const value = document[name];
       // Ignor special case type = 'object' when value is additional BSON type
       const type = value._bsontype || typeof value;
-      const index_key = `${prefix}.${name}`;
+      const index_key =
+        document instanceof Array ? prefix : `${prefix}.${name}`;
 
       // call recursion to index sub Object
       if (type === 'object') {
@@ -132,58 +157,6 @@ class ThroughCollection extends LazyCollection {
       const score = hashCode(value);
       this.redisWrapper.zadd(index_key, score, id);
     }
-  }
-
-  /**
-   * Convert mongo's query to custom standar query
-   * @param {JSON} query mongo find's query
-   * @param {String} prefix Prefix
-   * @return {Array} An array of conditon in orginal query
-   */
-  standarizeQuery(query, prefix) {
-    const standar_query = [];
-    prefix = prefix || this.namespace;
-
-    for (let property in query) {
-      let value = query[property];
-      const index_key = `${prefix}.${property}`;
-
-      // check if this field is ope
-      const operator = [
-        '$and',
-        '$or',
-        '$nor',
-        '$not',
-        '$eq',
-        '$ne',
-        '$lt',
-        '$lte',
-        '$gt',
-        '$gte'
-      ];
-      if (operator.indexOf(property) > -1) {
-        let subQuery = {};
-        subQuery[property] = this.standarizeQuery(value, prefix);
-        standar_query.push(subQuery);
-        continue;
-      }
-
-      // call recursion to index sub Object
-      if (typeof value === 'object') {
-        const subQuery = this.standarizeQuery(value, index_key);
-        standar_query.push(...subQuery);
-        continue;
-      }
-
-      // Indexing
-      const score = hashCode(value);
-      // add new property to query
-      let newQuery = {};
-      newQuery[index_key] = score;
-      standar_query.push(newQuery);
-    }
-
-    return standar_query;
   }
 }
 
@@ -201,7 +174,7 @@ function hashCode(value) {
     return hash;
   }
 
-  for (let i = 0, length = str_value.length; i < length; i++) {
+  for (let i in str_value) {
     const char = str_value.charCodeAt(i);
     hash = (hash << 5) - hash + char;
     hash |= 0; // convert hash to 32-bit int
@@ -210,4 +183,115 @@ function hashCode(value) {
   return hash;
 }
 
-module.exports = ThroughCollection;
+/**
+ * Convert mongo's query to custom standar query
+ * @param {JSON} query mongo find's query
+ * @param {String} prefix Prefix
+ * @return {Array} An array of condition in orginal query
+ */
+function standarizeQuery(query, prefix = '') {
+  const standardQuery = [];
+
+  // Iterate each operator in query
+  // { $operator: [ { <expression1> }, { <expression2> } , ... , { <expressionN> } ] }
+
+  for (let operator in query) {
+    let expressions = query[operator];
+    const nextPrefix =
+      OPERATORS.indexOf(operator) < 0 && query instanceof Array
+        ? prefix
+        : `${prefix}.${operator}`;
+    const subQuery = standarizeQuery(expressions, nextPrefix);
+
+    // If operator is logical operator
+    if (LOGICAL.indexOf(operator) > -1) {
+      // Check syntax for operator
+      if (operator === '$not') {
+        if (expressions.length !== 1) {
+          throw new SyntaxError(`${operator} must has one expression`);
+        }
+      } else {
+        if (!(expressions instanceof Array)) {
+          throw new SyntaxError(
+            `${operator}'s value must be an array of expressions`
+          );
+        }
+
+        if (expressions.length < 2) {
+          throw new SyntaxError(
+            `${operator} must has at least two expressions`
+          );
+        }
+      }
+
+      let subExpression = {};
+      subExpression[operator] = operator === '$not' ? subQuery[0] : subQuery;
+      // Create sub query and add it to standard query
+      standardQuery.push(subExpression);
+      continue;
+    }
+
+    // operator is complex comparison operator
+    if (COMPLEX_COMPARISON.indexOf(operator) > -1) {
+      // Make sure value is an Array
+      if (!(expressions instanceof Array)) {
+        expressions = [expressions];
+      }
+
+      // Hash value of query
+      const hashValue = expressions.map(value => {
+        return hashCode(value);
+      });
+
+      const subQuery = {
+        [operator]: {
+          [prefix]: hashValue
+        }
+      };
+
+      standardQuery.push(subQuery);
+      continue;
+    }
+
+    // operator is comparison operator
+    if (COMPARISON.indexOf(operator) > -1) {
+      // Check syntax
+      if (!prefix) {
+        throw new SyntaxError('Comparison queries must in field lable');
+      }
+
+      // Create sub query and add it to standard query
+      const subQuery = standarizeQuery(expressions, prefix);
+
+      if (subQuery.length !== 1) {
+        throw new SyntaxError('Comparison queries must contain one value');
+      }
+
+      standardQuery.push({
+        [operator]: subQuery[0]
+      });
+      continue;
+    }
+
+    // call recursion to index sub Object
+    if (expressions instanceof Object) {
+      const subQuery = standarizeQuery(expressions, nextPrefix);
+      standardQuery.push(...subQuery);
+      continue;
+    }
+
+    // Convert value to hashCode
+    const score = hashCode(expressions);
+    // add new operator to query
+    let newQuery = {};
+    newQuery[nextPrefix] = score;
+    standardQuery.push(newQuery);
+  }
+
+  return standardQuery;
+}
+
+module.exports = {
+  ThroughCollection,
+  standarizeQuery
+};

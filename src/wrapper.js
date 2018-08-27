@@ -2,8 +2,8 @@
 const MongoClient = require('mongodb').MongoClient;
 const RedisClient = require('redis').RedisClient;
 const RedisWrapper = require('./redis_wrapper');
-const LazyCollection = require('./collection/lazy_collection');
-const ThroughCollection = require('./collection/through_collection');
+const { LazyCollection } = require('./collection/lazy_collection');
+const { ThroughCollection } = require('./collection/through_collection');
 
 // Constants
 const NO_EXPIRE = 0;
@@ -27,7 +27,7 @@ class Wrapper {
 
     // Missing arguments
     if (expire === NO_EXPIRE) {
-      // check if user bybass mongo, redis 
+      // check if user bybass mongo, redis
       if (typeof mongo === 'number' && redis === undefined) {
         newExpire = mongo;
       } else if (mongo instanceof RedisClient && typeof redis === 'number') {
@@ -40,7 +40,12 @@ class Wrapper {
       }
     }
 
-    newMongo = newMongo || MongoClient.connect(URL, OPTION);
+    newMongo =
+      newMongo ||
+      MongoClient.connect(
+        URL,
+        OPTION
+      );
 
     if (!(newMongo instanceof MongoClient) && !(newMongo instanceof Promise)) {
       throw new TypeError('mongo must be a MongoClient');
@@ -88,7 +93,7 @@ class Wrapper {
       return false;
     }
 
-    this.redisWrapper.on('connect', (error) => {
+    this.redisWrapper.on('connect', error => {
       if (error) {
         return false;
       }
