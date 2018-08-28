@@ -5,9 +5,6 @@ const promisifyAll = require('bluebird').promisifyAll;
 promisifyAll(redis);
 
 // Constants
-const INF = 'inf';
-const NEG_INF = '-inf';
-
 const NO_COUNT = 0;
 const NO_EXPIRE = 0;
 const NO_MATCH = '*';
@@ -48,7 +45,7 @@ class RedisWrapper extends redis.RedisClient {
     this.expire = expire;
   }
 
-  // lazy cache's function 
+  // lazy cache's function
   async searchLazyCache(query_id) {
     let cacheData = [];
     let result = [];
@@ -81,117 +78,12 @@ class RedisWrapper extends redis.RedisClient {
     await this.save(query_id, hash, HASH, this.expire);
   }
 
-  // Through's function 
-
-  /**
-   * Find all document in zset that suitable the condition
-   * @param {String} key The index key
-   * @param {*} condition The value of comparison
-   * @param {String} operator Comparison operator
-   * @returns {Array} an Array of documents
-   */
-  async compare(key, condition, operator = '$eq') {
-    let listDocuments = [];
-    let range = [key, NEG_INF, INF];
-
-
-    if (operator === '$in') {
-      condition = condition instanceof Array ? condition : [condition];
-
-      for (let i in condition) {
-        const eqDocuments = await this.compare(key, condition[i], '$eq');
-        listDocuments.push(...eqDocuments);
-      }
-
-      return listDocuments;
-    }
-
-    if (operator === '$ne') {
-      const gtDocuments = await this.compare(key, condition, '$gt');
-      const ltDocuments = await this.compare(key, condition, '$lt');
-      listDocuments.push(...gtDocuments, ...ltDocuments);
-      return listDocuments;
-    }
-
-    // Need optimize
-    if (operator === '$nin') {
-      if (!(condition instanceof Array)) {
-        return await this.compare(key, condition, '$ne');
-      }
-
-      if (condition.length === 1) {
-        return await this.compare(key, condition[0], '$ne');
-      }
-
-      condition = condition.sort();
-      let nin_range = [];
-
-      // Create range of score to search
-      for (let i = 0, length = condition.length; i < length - 1; i++) {
-        let min = `(${condition[i]}`;
-        let max = `(${condition[i + 1]}` || INF;
-
-        if (i === 0) {
-          nin_range.push([key, NEG_INF, min]);
-        }
-
-        nin_range.push([key, min, max]);
-
-        if (i === length - 2) {
-          nin_range.push([key, max, INF]);
-        }
-      }
-
-      const listIds = [];
-      for (let i in nin_range) {
-        const rangeScan = await this.zrangebyscoreAsync(nin_range[i]);
-        listIds.push(...rangeScan);
-      }
-
-      for (let i in listIds) {
-        const document = await super.getAsync(listIds[i]);
-        listDocuments.push(JSON.parse(document));
-      }
-
-      return listDocuments;
-    }
-
-    switch (operator) {
-    case '$eq':
-      range = [key, `${condition}`, `${condition}`];
-      break;
-    case '$gt':
-      range = [key, `(${condition}`, INF];
-      break;
-    case '$gte':
-      range = [key, `${condition}`, INF];
-      break;
-    case '$lt':
-      range = [key, NEG_INF, `(${condition}`];
-      break;
-    case '$lte':
-      range = [key, NEG_INF, `${condition}`];
-      break;
-    default:
-      throw new Error('operator is not supported');
-    }
-
-    const listIds = await super.zrangebyscoreAsync(range);
-
-    for (let i in listIds) {
-      const document = await super.getAsync(listIds[i]);
-      listDocuments.push(JSON.parse(document));
-    }
-
-    return listDocuments;
-  }
-
   /**
    * Search value in redis by key
    * @param {String} key
-   * @param {String} type 
-   * @param {Number} count 
-   * @param {Number} match 
+   * @param {String} type
+   * @param {Number} count
+   * @param {Number} match
    * @returns {Array} Returns an array of document's id
    */
   async search(key, type = SET, count = NO_COUNT, match = NO_MATCH) {
@@ -248,16 +140,19 @@ class RedisWrapper extends redis.RedisClient {
       if (data) {
         result = [...result, ...data];
       }
-    } while (nextCursor !== FIRST_CURSOR && (result.length < count || count === NO_COUNT));
+    } while (
+      nextCursor !== FIRST_CURSOR &&
+      (result.length < count || count === NO_COUNT)
+    );
 
     return result;
   }
 
   /**
    * Save data to redis
-   * @param {String} key 
-   * @param {Object} data 
-   * @param {String} type 
+   * @param {String} key
+   * @param {Object} data
+   * @param {String} type
    */
   async save(key, data, type = STRING) {
     if (!key) {
