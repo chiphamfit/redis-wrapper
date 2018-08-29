@@ -1,240 +1,80 @@
 const LazyCollection = require('./lazy_collection');
+const { inter, outer, union, notIn } = require('../redis_wrapper');
 
-// const COMPLEX_COMPARISON = ['$in', '$nin'];
-// const OPERATORS = [...COMPLEX_COMPARISON, ...COMPARISON, ...LOGICAL];
-const INF = 'inf';
-const NEG_INF = '-inf';
-const LOGICAL = ['$and', '$or', '$nor', '$not'];
-const COMPARISON = ['$eq', '$ne', '$lt', '$lte', '$gt', '$gte', '$in', '$nin'];
+const LOGICAL = ['$and', '$or', '$nor'];
 
 class ThroughCollection extends LazyCollection {
   /**
-   * Execute the standard query
-   * @param {Array} query A standardized query
-   * @returns {Array} An array of documents find by query
+   * Execute query and return all document that suitable with query conditions
+   * @param {JSON} query query
+   * @returns {Promise} An array of documents find by query
    */
   async executeQuery(query) {
     // Make sure that query is an Object
     if (!(query instanceof Object)) {
-      throw new SyntaxError('query must be an Object');
+      throw new SyntaxError('query must be an object');
     }
 
     let cursor = [];
-    const count = [];
-    const andExpressions = [];
-    const arrDocuments = [];
 
-    // Execute every single query and inter them results together
+    // Execute every single query and inter their results together
     for (let key in query) {
-      const expression = query[key];
+      let expression_result = [];
 
-      if (key === '$not') {
-        const expressionResult = await this.not(expression);
-        arrDocuments.push(...expressionResult);
-        continue;
+      // key is not logical operator
+      if (LOGICAL.indexOf(key) < 0) {
+        let expression = query[key];
+
+        // check if expression is NOT operation
+        if (expression.$not) {
+          expression = expression.$not;
+          const all = this.redisWrapper.getAllDocument(this.namespace);
+          const not = await this.executeExpression(expression);
+          expression_result = outer(all, not);
+        } else {
+          // implicit AND operation
+          expression_result = await this.executeExpression(expression);
+        }
+      }
+
+      const listExpression = query[key];
+
+      if (!(listExpression instanceof Array)) {
+        throw new SyntaxError(`${key} must operation on an array`);
       }
 
       if (key === '$nor') {
-        const expressionResult = await this.nor(expression);
-        arrDocuments.push(...expressionResult);
-        continue;
+        let or = [];
+        const all = this.redisWrapper.getAllDocument(this.namespace);
+
+        for (let expression of listExpression) {
+          const res = await this.executeExpression(expression);
+          or = union(or, res);
+        }
+
+        // NOR = ALL - OR
+        expression_result = notIn(all, or);
       }
 
       if (key === '$and') {
-        const expressionResult = await this.and(expression);
-        arrDocuments.push(...expressionResult);
-        continue;
+        for (let expression of listExpression) {
+          const res = await this.executeExpression(expression);
+          expression_result = inter(expression_result, res);
+        }
       }
 
       if (key === '$or') {
-        const expressionResult = await this.or(expression);
-        arrDocuments.push(...expressionResult);
-        continue;
-      }
-
-      andExpressions.push(expression);
-    }
-
-    cursor.push(this.and(andExpressions));
-    // unique cursor
-
-    return cursor;
-  }
-
-  /**
-   *
-   * @param {Object} expression
-   */
-  async not(expression) {
-    if (!(expression instanceof Object)) {
-      throw new SyntaxError('$not expression must be an Object');
-    }
-
-    let operator = '$eq';
-    let not_operator = '$ne';
-
-    // get operator of expression
-    for (let key in expression) {
-      operator = key;
-      break;
-    }
-
-    // change operator
-    switch (operator) {
-    case '$eq':
-      not_operator = '$ne';
-      break;
-    case '$gt':
-      not_operator = '$lte';
-      break;
-    case 'gte':
-      not_operator = '$lt';
-      break;
-    case '$in':
-      not_operator = '$nin';
-      break;
-    case '$lt':
-      not_operator = '$gte';
-      break;
-    case '$lte':
-      not_operator = '$gt';
-      break;
-    case '$ne':
-      not_operator = '$eq';
-      break;
-    case '$nin':
-      not_operator = '$in';
-      break;
-    default:
-      throw new SyntaxError('operator-expression not exist');
-    }
-
-    const not_expression = {
-      [not_operator]: expression[operator]
-    };
-
-    return await this.compare(not_expression);
-  }
-
-  /**
-   * $and: [ { <expression1> }, { <expression2> }, ... , { <expressionN> } ]
-   * @param {Array} arrExpressions
-   * @return {Array} Documents that suitable with all expressions
-   */
-  async and(arrExpressions) {
-    if (!(arrExpressions instanceof Array)) {
-      throw new SyntaxError('$and expression must be an array');
-    }
-
-    const count = [];
-    const cursor = [];
-    const arrDocuments = [];
-
-    for (let expression of arrExpressions) {
-      // check if nested logical
-      let operator = '';
-
-      // get operator of expression
-      for (let key in expression) {
-        operator = key;
-        break;
-      }
-
-      if (COMPARISON.indexOf(operator) < 0) {
-        return this.executeQuery(expression[operator]);
-      }
-
-      const compareResult = await this.redisWrapper.compare(expression);
-      arrDocuments.push(...compareResult);
-    }
-
-    // Inter
-    // if document exist in count array add to result
-    // else add it to count array
-    for (let document in arrDocuments) {
-      const id = document._id;
-
-      if (!count[id]) {
-        count[id] = 1;
-      } else {
-        cursor.push(document);
-      }
-    }
-
-    return cursor;
-  }
-
-  /**
-   * $or: [ { <expression1> }, { <expression2> }, ... , { <expressionN> } ]
-   * @param {Array} arrExpressions
-   * @return {Array} Documents that suitable with one of expressions
-   */
-  async or(arrExpressions) {
-    if (!(arrExpressions instanceof Array)) {
-      throw new SyntaxError('$or expression must be an array');
-    }
-
-    const count = [];
-    const cursor = [];
-    const arrDocuments = [];
-
-    for (let expression of arrExpressions) {
-      // check if nested logical
-      let operator = '';
-
-      // get operator of expression
-      for (let key in expression) {
-        operator = key;
-        break;
-      }
-
-      if (COMPARISON.indexOf(operator) < 0) {
-        return this.executeQuery(expression[operator]);
-      }
-
-      const compareResult = await this.redisWrapper.compare(expression);
-      arrDocuments.push(...compareResult);
-    }
-
-    // Union
-    for (let document in arrDocuments) {
-      const id = document._id;
-
-      if (!count[id]) {
-        count[id] = 1;
-        cursor.push(document);
-      } else {
-        count[id] += 1;
-      }
-    }
-
-    return cursor;
-  }
-
-  /**
-   * $nor: [ { <expression1> }, { <expression2> }, ... , { <expressionN> } ]
-   * @param {Array} arrExpressions
-   * @return {Array} Documents that not suitable with all expressions
-   */
-  async nor(arrExpressions) {
-    const cursor = [];
-    const allDocuments = await this.find();
-    const andDocuments = await this.and(arrExpressions);
-
-    // nor = ALL - and(A, B, ...)
-    allDocuments.forEach(document => {
-      let notInAndDoc = false;
-
-      andDocuments.forEach(andDocument => {
-        if (document._id === andDocument._id) {
-          notInAndDoc = true;
+        for (let expression of listExpression) {
+          const res = await this.executeExpression(expression);
+          expression_result = union(expression_result, res);
         }
-      });
-
-      if (notInAndDoc) {
-        cursor.push(document);
       }
-    });
+
+      cursor =
+        cursor.length === 0
+          ? expression_result
+          : inter(cursor, expression_result);
+    }
 
     return cursor;
   }
@@ -244,124 +84,45 @@ class ThroughCollection extends LazyCollection {
    * @param {Object} expression expression = { field: { operator: <value> } } || { field: <value> }
    * @returns {Array} an Array of documents that matches the operator conditions
    */
-  async executeExpression(expression = {}) {
+  async executeExpression(expression) {
     if (!(expression instanceof Object)) {
       throw new SyntaxError('Compare\'s expression must be an Object');
     }
 
-    // Init the expression values
+    // Init the expression's values
     const field = Object.keys(expression)[0];
     let value = expression[field];
     let operator = '$eq';
-    let listDocuments = [];
 
+    // check if expression has form { field: { operator: value } }
     if (value instanceof Object) {
       operator = Object.keys(value)[0];
       value = value[operator];
     }
 
+    value = hashCode(value);
+
     // Execute
-    if (operator === '$in') {
-      if (!(value instanceof Array)) {
-        throw new SyntaxError('Value of operator $in must be an array');
-      }
-
-      for (let condition of value) {
-        const eqDocuments = await this.executeExpression({
-          [field]: condition
-        });
-
-        listDocuments.push(...eqDocuments);
-      }
-    }
-
-    if (operator === '$ne') {
-      const gtDocuments = await this.executeExpression({
-        [field]: { $gt: value }
-      });
-
-      const ltDocuments = await this.executeExpression({
-        [field]: { $lt: value }
-      });
-
-      listDocuments.push(...gtDocuments, ...ltDocuments);
-    }
-
-    if (operator === '$nin') {
-      if (!(value instanceof Array)) {
-        throw new SyntaxError('Value of operator $nin must be an array');
-      }
-
-      if (value.length === 1) {
-        return await this.compare({ [field]: { $ne: value[0] } });
-      }
-
-      value = value.sort();
-      let range = [];
-
-      // re-write
-      // Create range of score to search
-      for (let i = 0, length = value.length; i < length - 1; i++) {
-        let min = `(${value[i]}`;
-        let max = `(${value[i + 1]}` || INF;
-
-        if (i === 0) {
-          range.push([field, NEG_INF, min]);
-        }
-
-        range.push([field, min, max]);
-
-        if (i === length - 2) {
-          range.push([field, max, INF]);
-        }
-      }
-
-      const listIds = [];
-
-      for (let i in range) {
-        const rangeScan = await this.zrangebyscoreAsync(range[i]);
-        listIds.push(...rangeScan);
-      }
-
-      for (let i in listIds) {
-        const document = await super.getAsync(listIds[i]);
-        listDocuments.push(JSON.parse(document));
-      }
-    }
-
     switch (operator) {
     case '$eq':
-      range = [key, `${condition}`, `${condition}`];
-      break;
+      return this.redisWrapper.eq(field, value);
     case '$gt':
-      range = [key, `(${condition}`, INF];
-      break;
+      return this.redisWrapper.gt(field, value);
     case '$gte':
-      range = [key, `${condition}`, INF];
-      break;
+      return this.redisWrapper.gte(field, value);
+    case '$in':
+      return this.redisWrapper.in(field, value);
     case '$lt':
-      range = [key, NEG_INF, `(${condition}`];
-      break;
+      return this.redisWrapper.lt(field, value);
     case '$lte':
-      range = [key, NEG_INF, `${condition}`];
-      break;
+      return this.redisWrapper.lte(field, value);
+    case '$ne':
+      return this.redisWrapper.ne(field, value);
+    case '$nin':
+      return this.redisWrapper.nin(field, value);
     default:
       throw new Error('operator is not supported');
     }
-
-    const listIds = await super.zrangebyscoreAsync(range);
-
-    for (let i in listIds) {
-      const document = await super.getAsync(listIds[i]);
-      listDocuments.push(JSON.parse(document));
-    }
-
-    return listDocuments;
-  }
-
-  applyOptions(cursor, options) {
-    // dummy result
-    return [cursor, options];
   }
 
   async find(query, options) {
@@ -372,35 +133,31 @@ class ThroughCollection extends LazyCollection {
       };
     }
 
-    if (typeof query !== 'object') {
+    if (query && typeof query !== 'object') {
       throw new TypeError('query must be an object');
     }
 
-    if (typeof options !== 'object') {
+    if (options && typeof options !== 'object') {
       throw new TypeError('options must be an object');
     }
 
-    // Standardize the query
-    const standard_query = this.standarizeQuery(query);
-
-    // Standardize the options
-
     // Find in cache first
-    const cursor = await this.executeQuery(standard_query);
-
-    // Apply Options for cursor
-    const result = this.applyOptions(cursor, options);
-
-    // if can't found in cache, try to find in lazy-cache mode
-    if (result.length === 0) {
-      return await super.find(query, options);
+    if (query === undefined) {
+      return await this.redisWrapper.getAllDocument(this.namespace);
     }
 
-    return result;
+    const cursor = await this.executeQuery(query);
+
+    // // if can't found in cache, try to find in lazy-cache mode
+    // if (cursor.length === 0) {
+    //   return await super.find(query, options);
+    // }
+
+    return cursor;
   }
 
   async findOne(query, option) {
-    // dummp function
+    // dummy function
     const cursor = await super.findOne(query, option);
     return cursor;
   }
@@ -422,6 +179,8 @@ class ThroughCollection extends LazyCollection {
 
       // save document as string
       this.redisWrapper.set(id, JSON.stringify(document));
+      // save list of document in collection
+      this.redisWrapper.sadd(this.namespace, id);
       // Indexing document
       this.indexing(id, subDocument);
     });
@@ -479,127 +238,4 @@ function hashCode(value) {
   return hash;
 }
 
-// /**
-//  * Convert mongo's query to custom standar query
-//  * @param {JSON} query mongo find's query
-//  * @param {String} prefix Prefix
-//  * @return {Array} An array of condition in orginal query
-//  */
-// function standarizeQuery(query, prefix = '') {
-//   let standardQuery = { ...query };
-
-//   for (let property in standardQuery) {
-//     const value = query[property];
-//     const isLogical = LOGICAL.indexOf(property) > -1;
-
-//     if (property === '$not') {
-//       if (!(value instanceof Object)) {
-//         throw new SyntaxError('$not operator value must be a Object');
-//       }
-
-//       if (Object.keys(value).length !== 1) {
-//         throw new SyntaxError(
-//           '$not operator-expression must have one property'
-//         );
-//       }
-
-//       return standardQuery;
-//     }
-
-//     if (isLogical) {
-//       standardQuery[property] = standarizeQuery(value);
-//     }
-//   }
-
-//   return standardQuery;
-// }
-
 module.exports = ThroughCollection;
-
-//   const nextPrefix = queryIsArray ? prefix : `${prefix}.${operator}`;
-//   const subQuery = standarizeQuery(expressions, nextPrefix);
-
-//   // If operator is logical operator
-//   if (LOGICAL.indexOf(operator) > -1) {
-//     // Check syntax for operator
-//     if (operator === '$not') {
-//       if (expressions.length !== 1) {
-//         throw new SyntaxError(`${operator} must has one expression`);
-//       }
-//     } else {
-//       if (!(expressions instanceof Array)) {
-//         throw new SyntaxError(
-//           `${operator}'s value must be an array of expressions`
-//         );
-//       }
-
-//       if (expressions.length < 2) {
-//         throw new SyntaxError(
-//           `${operator} must has at least two expressions`
-//         );
-//       }
-//     }
-
-//     let subExpression = {};
-//     subExpression[operator] = operator === '$not' ? subQuery[0] : subQuery;
-//     // Create sub query and add it to standard query
-//     standardQuery.push(subExpression);
-//     continue;
-//   }
-
-//   // operator is complex comparison operator
-//   if (COMPLEX_COMPARISON.indexOf(operator) > -1) {
-//     // Make sure value is an Array
-//     if (!(expressions instanceof Array)) {
-//       expressions = [expressions];
-//     }
-
-//     // Hash value of query
-//     const hashValue = expressions.map(value => {
-//       return hashCode(value);
-//     });
-
-//     const subQuery = {
-//       [operator]: {
-//         [prefix]: hashValue
-//       }
-//     };
-
-//     standardQuery.push(subQuery);
-//     continue;
-//   }
-
-//   // operator is comparison operator
-//   if (COMPARISON.indexOf(operator) > -1) {
-//     // Check syntax
-//     if (!prefix) {
-//       throw new SyntaxError('Comparison queries must in field lable');
-//     }
-
-//     // Create sub query and add it to standard query
-//     const subQuery = standarizeQuery(expressions, prefix);
-
-//     if (subQuery.length !== 1) {
-//       throw new SyntaxError('Comparison queries must contain one value');
-//     }
-
-//     standardQuery.push({
-//       [operator]: subQuery[0]
-//     });
-//     continue;
-//   }
-
-//   // call recursion to index sub Object
-//   if (expressions instanceof Object) {
-//     const subQuery = standarizeQuery(expressions, nextPrefix);
-//     standardQuery.push(...subQuery);
-//     continue;
-//   }
-
-//   // Convert value to hashCode
-//   const score = hashCode(expressions);
-//   // add new operator to query
-//   let newQuery = {};
-//   newQuery[nextPrefix] = score;
-//   standardQuery.push(newQuery);
-// }

@@ -1,9 +1,9 @@
 // Dependences
 const MongoClient = require('mongodb').MongoClient;
 const RedisClient = require('redis').RedisClient;
-const RedisWrapper = require('./redis_wrapper');
-const { LazyCollection } = require('./collection/lazy_collection');
-const { ThroughCollection } = require('./collection/through_collection');
+const RedisWrapper = require('./redis_wrapper').RedisWrapper;
+const LazyCollection = require('./collection/lazy_collection').LazyCollection;
+const ThroughCollection = require('./collection/through_collection');
 
 // Constants
 const NO_EXPIRE = 0;

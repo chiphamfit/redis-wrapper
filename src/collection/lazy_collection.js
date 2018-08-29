@@ -1,5 +1,5 @@
 const createHash = require('crypto').createHash('md5');
-const RedisWrapper = require('../redis_wrapper');
+const { RedisWrapper } = require('../redis_wrapper');
 
 // Constances
 const SET = 'set';
@@ -64,16 +64,20 @@ class LazyCollection {
     listDocuments = await this.collection.find(query, option).toArray();
 
     // Create cache for query
-    await this.redisWrapper.saveLazyCache(query_id, listDocuments, this.namespace);
+    await this.redisWrapper.saveLazyCache(
+      query_id,
+      listDocuments,
+      this.namespace
+    );
 
     return listDocuments;
   }
 
   /**
    * Returns one document that satisfies the specified query criteria.
-   * If multiple documents satisfy the query, this method returns the first document 
-   * according to the natural order which reflects the order of documents on the disk. 
-   * In capped collections, natural order is the same as insertion order. 
+   * If multiple documents satisfy the query, this method returns the first document
+   * according to the natural order which reflects the order of documents on the disk.
+   * In capped collections, natural order is the same as insertion order.
    * If no document satisfies the query, the method returns null.
    * @param {Object} query Optional. Specifies query selection criteria using query operators.
    * @param {Object} option Optional. Specifies the fields to return using projection operators. Omit this parameter to return all fields in the matching document.
@@ -97,7 +101,7 @@ class LazyCollection {
     document = await this.collection.findOne(query, option);
 
     if (document && document._id) {
-      // save query 
+      // save query
       this.redisWrapper.set(query_id, document);
       // update cache list
       this.redisWrapper.save(this.namespace, [query_id], SET);
