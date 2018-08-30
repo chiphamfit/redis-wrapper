@@ -1,4 +1,5 @@
 const redis = require('redis');
+const RedisClient = require('redis').RedisClient;
 const promisifyAll = require('bluebird').promisifyAll;
 
 // add async to all redis's funtion
@@ -16,31 +17,34 @@ const FIRST_CURSOR = '0';
 const NEXT_CURSOR_INDEX = 0;
 const DATA_INDEX = 1;
 
+// data type
 const SET = 'set';
 const ZSET = 'zset';
 const HASH = 'hash';
 const STRING = 'string';
 
-class RedisWrapper extends redis.RedisClient {
+class Cacher extends RedisClient {
   /**
-   * Create a Redis Wrapper client
-   * @param {RedisClient} client A redis client
+   * Create a wrapper for redis client
+   * @param {RedisClient} redis A redis client
    * @param {Number} expire Time to life of cache data
    */
-  constructor(client, expire) {
+  constructor(redis, expire) {
     super();
-    // copy client to this
-    if (client instanceof redis.RedisClient) {
-      for (let property in client) {
-        this[property] = client[property];
+
+    // copy all redis client's property to this
+    if (redis instanceof RedisClient) {
+      for (let property in redis) {
+        this[property] = redis[property];
       }
     }
 
-    // check if user bypass client
-    if (typeof client === 'number' && expire === undefined) {
-      expire = client || NO_EXPIRE;
+    // check if redis is bypassed
+    if (typeof redis === 'number' && expire === undefined) {
+      expire = redis || NO_EXPIRE;
     }
 
+    // check if expire is bypassed
     if (isNaN(expire) || expire < NO_EXPIRE) {
       throw new TypeError('expire must be a positive Number');
     }
@@ -392,8 +396,8 @@ class RedisWrapper extends redis.RedisClient {
    * @param {number|string} value
    * @returns {Promise} return Promise that return an array of documents
    */
-  async ne(field, value) {
-    const allDocuments = await this.getAllDocument(this.namespace);
+  async ne(field, value, collection) {
+    const allDocuments = await this.getAllDocument(collection);
     const eqDocuments = await this.eq(field, value);
     const documents = documentsOuter(allDocuments, eqDocuments);
 
@@ -409,8 +413,8 @@ class RedisWrapper extends redis.RedisClient {
    * @param {number|string} values
    * @returns {Promise} return Promise that return an array of documents
    */
-  async nin(field, values) {
-    let documents = await this.getAllDocument(this.namespace);
+  async nin(field, values, collection) {
+    let documents = await this.getAllDocument(collection);
 
     for (let value of values) {
       const eqDocuments = await this.eq(field, value);
@@ -419,6 +423,71 @@ class RedisWrapper extends redis.RedisClient {
 
     return documents;
   }
+
+  /** { field: { operator: value } } || { field: value }
+   * Find all document in zset that suitable the condition
+   * @param {Object} expression expression = { field: { operator: <value> } } || { field: <value> }
+   * @returns {Array} an Array of documents that matches the operator conditions
+   */
+  async executeExpression(expression, collection) {
+    if (!(expression instanceof Object)) {
+      throw new SyntaxError('Compare\'s expression must be an Object');
+    }
+
+    // Init the expression's values
+    const field = Object.keys(expression)[0];
+    const operator =
+      expression[field] instanceof Object
+        ? Object.keys(expression[field])[0]
+        : '$eq';
+    const value = expression[field][operator] || expression[field];
+
+    // Execute
+    const key = `${collection}.${field}`;
+    const score = hashCode(value);
+    switch (operator) {
+    case '$eq':
+      return await this.eq(key, score);
+    case '$gt':
+      return await this.gt(key, score);
+    case '$gte':
+      return await this.gte(key, score);
+    case '$in':
+      return await this.in(key, score);
+    case '$lt':
+      return await this.lt(key, score);
+    case '$lte':
+      return await this.lte(key, score);
+    case '$ne':
+      return await this.ne(key, score, collection);
+    case '$nin':
+      return await this.nin(key, score, collection);
+    default:
+      throw new Error('operator is not supported');
+    }
+  }
+}
+
+/**
+ * Convert an object's value to 32-bit int base on its stringify
+ * @param {*} value
+ * @returns a 32-bit integer
+ */
+function hashCode(value) {
+  // Stringify value and convert it to number by its charCode
+  const str_value = typeof value !== 'string' ? JSON.stringify(value) : value;
+  let hash = 0;
+  if (str_value.length === 0) {
+    return hash;
+  }
+
+  for (let i in str_value) {
+    const char = str_value.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash |= 0; // convert hash to 32-bit int
+  }
+
+  return hash;
 }
 
 /**
@@ -526,7 +595,7 @@ function documentsNotIn(des, src) {
 }
 
 module.exports = {
-  RedisWrapper,
+  Cacher,
   inter: documentsInter,
   outer: documentsOuter,
   union: documentsUnion,
