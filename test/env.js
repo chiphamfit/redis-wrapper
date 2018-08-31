@@ -56,8 +56,8 @@ async function generateData(amount) {
   for (let i = 0; i < amount; i++) {
     const doc = {
       name: randName(),
-      height: Math.random() * 2,
-      weight: Math.random() * 85,
+      height: (Math.random() * 2).toFixed(2),
+      weight: (Math.random() * 85).toFixed(2),
       sex: Math.random() < 0.5 ? 'male' : 'female'
     };
 

@@ -3,8 +3,8 @@ const RedisWrapper = require('../index');
 const { clearData, generateData, createCollection } = require('./env');
 const assert = require('chai').assert;
 
-const docAmount = 5000;
-const round = 500;
+const docAmount = 500;
+const round = 5000;
 let cachingTime = 0;
 let normalTime = 0;
 
