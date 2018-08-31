@@ -1,3 +1,3 @@
-const Wrapper =  require('./scr/wrapper');
+const RedisWrapper = require('./lib/redisWrapper');
 
-export default Wrapper;
+module.exports = RedisWrapper;
