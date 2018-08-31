@@ -1,5 +1,5 @@
 /* eslint-env node, mocha */
-const RedisWrapper = require('../index');
+const RedisWrapper = require('..');
 const { clearData, generateData, createCollection } = require('./env');
 const assert = require('chai').assert;
 
