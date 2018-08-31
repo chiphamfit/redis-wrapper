@@ -4,7 +4,7 @@
   "description": "A wrapper use redis to cache mongo database",
   "main": "index.js",
   "scripts": {
-    "test": "mocha ./test/*.spec.js",
+    "test": "mocha ./test/*.spec.js --timeout false",
     "eslint": "eslint *.js"
   },
   "repository": {
