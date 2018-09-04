@@ -1,3 +1,7 @@
-const RedisWrapper = require('./lib/redisWrapper');
+const LazyWrapper = require('./lib/cache/lazyWrapper');
+const InlineWrapper = require('./lib/cache/inlineWrapper');
 
-module.exports = RedisWrapper;
+module.exports = {
+  LazyWrapper,
+  InlineWrapper
+};
