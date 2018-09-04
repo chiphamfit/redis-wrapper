@@ -1,37 +1,37 @@
 /* eslint-env node, mocha */
-const RedisWrapper = require('..');
-const { clearData, generateData, createCollection } = require('./env');
-const assert = require('chai').assert;
+const { LazyWrapper } = require("..");
+const { clearData, generateData, createCollection } = require("./env");
+const assert = require("chai").assert;
 
 const docAmount = 500;
 const round = 5000;
 let cachingTime = 0;
 let normalTime = 0;
 
-before(async () => {
-  // Clean data
-  it('Cleaning database', async () => {
-    return await clearData();
+describe("Test performance between Lazy caching and non-caching, please wait...", () => {
+  before(async () => {
+    // Clean data
+    it("Cleaning database", async () => {
+      return await clearData();
+    });
+
+    // Mocking data
+    it(`Generating ${docAmount} documents`, async () => {
+      return await generateData(docAmount);
+    });
   });
 
-  // Mocking data
-  it(`Generating ${docAmount} documents`, async () => {
-    return await generateData(docAmount);
-  });
-});
-
-describe('Test performance between Lazy caching and non-caching, please wait...', () => {
-  it('find using lazy caching', async () => {
+  it("find using lazy caching", async () => {
     try {
       const coll = await createCollection();
-      const wrapper = new RedisWrapper(coll);
-      const lazy = wrapper.lazyCaching(120);
+      const lazy = new LazyWrapper(coll, 120);
       // Init cache data
       await lazy.find();
       const start = new Date();
 
       for (let i = 0; i < round; i++) {
-        await lazy.find();
+        const res = await lazy.find();
+        assert.equal(res.length, docAmount);
       }
 
       const end = new Date();
@@ -44,13 +44,14 @@ describe('Test performance between Lazy caching and non-caching, please wait...'
     assert.ok(true);
   });
 
-  it('non-caching find', async () => {
+  it("non-caching find", async () => {
     try {
       const coll = await createCollection();
       const start = new Date();
 
       for (let i = 0; i < round; i++) {
-        await coll.find().toArray();
+        const res = await coll.find().toArray();
+        assert.equal(res.length, docAmount);
       }
 
       const end = new Date();
@@ -66,13 +67,13 @@ describe('Test performance between Lazy caching and non-caching, please wait...'
 
 after(() => {
   const percent = ((normalTime / cachingTime) * 100).toFixed(2);
-  console.log('============ Result ============');
+  console.log("============ Result ============");
   console.log(`Number of documents: ${docAmount}`);
   console.log(`Find times: ${round}`);
-  console.log('\n Lazy Caching');
+  console.log("\n Lazy Caching");
   console.log(`Total time for queries caching: ${cachingTime} ms`);
   console.log(`Average time for each round: ${cachingTime / round} ms\n`);
-  console.log(' Non Caching');
+  console.log(" Non Caching");
   console.log(`Total time for queries non-caching: ${normalTime} ms`);
   console.log(`Average time for each round: ${normalTime / round} ms\n`);
   console.log(`Lazy mode queries faster by ${normalTime - cachingTime} ms`);

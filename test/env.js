@@ -1,8 +1,7 @@
 const createMongoClient = require('mongodb').connect;
-const url = 'mongodb://localhost:27017/';
-const dbName = 'cache_db';
-const colName = 'cache_col';
-const mock_name = [
+const { RedisClient } = require('../lib/ulti/helper');
+
+const def_name = [
   'Jacob',
   'Sophia',
   'Mason',
@@ -24,12 +23,16 @@ const mock_name = [
   'Daniel',
   'Chloe'
 ];
-const n_name = mock_name.length;
+
+const url = 'mongodb://localhost:27017/';
+const dbName = 'testing';
+const colName = 'cacheColl';
+const nName = def_name.length;
 
 function randName() {
-  // random number between 0 and n_name
-  const i = Math.floor(Math.random() * n_name);
-  return mock_name[i];
+  // random number between 0 and nName
+  const i = Math.floor(Math.random() * nName);
+  return def_name[i];
 }
 
 async function createCollection() {
@@ -41,6 +44,8 @@ async function createCollection() {
 
 async function clearData() {
   try {
+    const redis = new RedisClient();
+    redis.flushdb();
     const col = await createCollection();
     await col.drop();
   } catch (error) {
@@ -70,5 +75,6 @@ async function generateData(amount) {
 module.exports = {
   createCollection,
   generateData,
-  clearData
+  clearData,
+  RedisClient
 };
