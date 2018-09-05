@@ -42,10 +42,8 @@ async function createCollection() {
   return col;
 }
 
-async function clearData() {
+async function cleanData() {
   try {
-    const redis = new RedisClient();
-    redis.flushdb();
     const col = await createCollection();
     await col.drop();
   } catch (error) {
@@ -75,6 +73,6 @@ async function generateData(amount) {
 module.exports = {
   createCollection,
   generateData,
-  clearData,
+  cleanData,
   RedisClient
 };
