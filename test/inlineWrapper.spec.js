@@ -12,9 +12,6 @@ const nDocument = 50000;
 
 describe('InlineWrapper', () => {
   const redis = new RedisClient();
-  const query = {
-    $or: [{ height: 1.65 }, { weight: 65 }]
-  };
   let inlineClient, coll, id;
 
   before(async () => {
@@ -31,12 +28,8 @@ describe('InlineWrapper', () => {
   });
 
   describe('#init()', () => {
-    it('Read all data in mongo\'s collection, then load them to cache', async () => {
-      try {
-        await inlineClient.init();
-      } catch (error) {
-        console.log(error.message);
-      }
+    it('read all data in mongo\'s collection, then load them to cache', async () => {
+      return await inlineClient.init();
     });
   });
 
@@ -67,7 +60,7 @@ describe('InlineWrapper', () => {
   });
 
   describe('#find()', () => {
-    it('get all documents in this collection', async () => {
+    it.skip('get all documents in this collection', async () => {
       const docs = await inlineClient.find();
       assert.lengthOf(docs, nDocument);
 
@@ -76,18 +69,18 @@ describe('InlineWrapper', () => {
       id = JSON.stringify(docs[index]._id);
     });
 
-      // get random id to find by id
-      const index = Math.ceil(Math.random() * nDocument) % nDocument;
-      id = JSON.stringify(docs[index]._id);
-    });
-
-    it.skip('get all documents that satisfies the query', async () => {
-      const docs = await inlineClient.find(query);
-      assert.lengthOf(docs, nDocument);
+    it('get documents that satisfies the query', async () => {
+      // const query = {
+      //   $or: [{ height: 1.65 }, { weight: 65 }]
+      // };
+      const exp = { height: 1.65 };
+      const docs = await inlineClient.findByExpression(exp);
+      assert.isArray(docs);
+      assert.isNotNull(docs[0]);
     });
   });
 
-  describe('#findById()', () => {
+  describe.skip('#findById()', () => {
     it('return a document has id equal with query\'s id', async () => {
       const doc = await inlineClient.findById(id);
       assert.equal(JSON.stringify(doc._id), id);

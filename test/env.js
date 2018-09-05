@@ -47,7 +47,7 @@ async function cleanData() {
     const col = await createCollection();
     await col.drop();
   } catch (error) {
-    console.log(error.message);
+    throw error;
   }
 }
 
