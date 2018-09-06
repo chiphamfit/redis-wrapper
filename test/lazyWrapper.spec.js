@@ -1,35 +1,31 @@
 /* eslint-env node, mocha */
 const { LazyWrapper } = require('..');
-const {
-  cleanData,
-  generateData,
-  createCollection,
-  RedisClient
-} = require('./env');
+const { cleanUp, prepare, clientPair } = require('./env');
 const { assert } = require('chai');
 
 describe.skip('LazyWrapper', () => {
-  let coll, lazyClient;
+  let coll, redis, lazyClient;
   const name = 'Noah';
   const expire = 120;
   const round = 20;
   const nDocument = 500;
-  const redis = new RedisClient();
   const query = {
     name: name
   };
 
   before(async () => {
-    // Create collection
-    coll = await createCollection();
+    const clients = await clientPair.getInstance();
+    coll = clients.coll;
+    redis = clients.redis;
     lazyClient = new LazyWrapper(coll, redis, expire);
+    assert.instanceOf(lazyClient, LazyWrapper);
 
-    // Clean mongobd's data
-    await cleanData();
-    // clean cache data
-    await lazyClient.flush();
-    // Mocking data
-    await generateData(nDocument);
+    // Prepare data for test
+    await prepare();
+  });
+
+  after(async () => {
+    await cleanUp();
   });
 
   describe('#constructor()', () => {

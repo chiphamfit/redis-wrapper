@@ -1,30 +1,24 @@
 /* eslint-env node, mocha */
 const { InlineWrapper } = require('..');
-const {
-  createCollection,
-  generateData,
-  cleanData,
-  RedisClient
-} = require('./env');
+const { prepare, cleanUp, clientPair } = require('./env');
 const assert = require('chai').assert;
 
-const nDocument = 50000;
-
 describe('InlineWrapper', () => {
-  const redis = new RedisClient();
-  let inlineClient, coll, id;
+  let inlineClient, redis, coll, id;
 
   before(async () => {
-    // Cleanup
-    await cleanData();
-    redis.flushall();
-
-    // Mock data
-    await generateData(nDocument);
-
-    coll = await createCollection();
+    const clients = await clientPair.getInstance();
+    coll = clients.coll;
+    redis = clients.redis;
     inlineClient = new InlineWrapper(coll, redis);
     assert.instanceOf(inlineClient, InlineWrapper);
+
+    // Prepare data for test
+    await prepare();
+  });
+
+  after(async () => {
+    // await cleanUp();
   });
 
   describe('#init()', () => {
@@ -59,24 +53,14 @@ describe('InlineWrapper', () => {
     });
   });
 
-  describe('#find()', () => {
-    it.skip('get all documents in this collection', async () => {
+  describe.skip('#find()', () => {
+    it('get all documents in this collection', async () => {
       const docs = await inlineClient.find();
       assert.lengthOf(docs, nDocument);
 
       // get random id to find by id
       const index = Math.ceil(Math.random() * nDocument) % nDocument;
       id = JSON.stringify(docs[index]._id);
-    });
-
-    it('get documents that satisfies the query', async () => {
-      // const query = {
-      //   $or: [{ height: 1.65 }, { weight: 65 }]
-      // };
-      const exp = { height: 1.65 };
-      const docs = await inlineClient.findByExpression(exp);
-      assert.isArray(docs);
-      assert.isNotNull(docs[0]);
     });
   });
 
@@ -89,6 +73,80 @@ describe('InlineWrapper', () => {
     it('return null when document not found', async () => {
       const doc = await inlineClient.findById();
       assert.isNull(doc);
+    });
+  });
+
+  describe('#findByExpression()', () => {
+    it.skip('implicit $eq expression', async () => {
+      const exp = { height: 1.65 };
+      const docs = await inlineClient.findByExpression(exp);
+      assert.isArray(docs);
+      assert.isNotNull(docs[0]);
+      // console.log(docs.length);
+    });
+
+    it('$eq expression', async () => {
+      const exp = { weight: { $eq: 1.65 } };
+      const docs = await inlineClient.findByExpression(exp);
+      assert.isArray(docs);
+      assert.isObject(docs[0]);
+      // console.log(docs.length);
+    });
+
+    it('$gt expression', async () => {
+      const exp = { weight: { $gt: 1.65 } };
+      const docs = await inlineClient.findByExpression(exp);
+      assert.isArray(docs);
+      assert.isObject(docs[0]);
+      // console.log(docs.length);
+    });
+
+    it('$gte expression', async () => {
+      const exp = { weight: { $gte: 1.65 } };
+      const docs = await inlineClient.findByExpression(exp);
+      assert.isArray(docs);
+      assert.isObject(docs[0]);
+      // console.log(docs.length);
+    });
+
+    it('$lt expression', async () => {
+      const exp = { weight: { $lt: 1.65 } };
+      const docs = await inlineClient.findByExpression(exp);
+      assert.isArray(docs);
+      assert.isObject(docs[0]);
+      // console.log(docs.length);
+    });
+
+    it('$lte expression', async () => {
+      const exp = { weight: { $lte: 1.65 } };
+      const docs = await inlineClient.findByExpression(exp);
+      assert.isArray(docs);
+      assert.isObject(docs[0]);
+      // console.log(docs.length);
+    });
+
+    it('$ne expression', async () => {
+      const exp = { weight: { $eq: 1.65 } };
+      const docs = await inlineClient.findByExpression(exp);
+      assert.isArray(docs);
+      assert.isObject(docs[0]);
+      // console.log(docs.length);
+    });
+
+    it('$in expression', async () => {
+      const exp = { weight: { $in: [1.65, 1.8, 2] } };
+      const docs = await inlineClient.findByExpression(exp);
+      assert.isArray(docs);
+      assert.isObject(docs[0]);
+      // console.log(docs.length);
+    });
+
+    it('$nin expression', async () => {
+      const exp = { weight: { $nin: [1.65, 1.8, 2] } };
+      const docs = await inlineClient.findByExpression(exp);
+      assert.isArray(docs);
+      assert.isObject(docs[0]);
+      // // console.log(docs.length);
     });
   });
 

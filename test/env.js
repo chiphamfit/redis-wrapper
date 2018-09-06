@@ -1,5 +1,5 @@
 const createMongoClient = require('mongodb').connect;
-const { RedisClient } = require('../lib/ulti/helper');
+const { RedisClient } = require('redis');
 
 const def_name = [
   'Jacob',
@@ -25,9 +25,32 @@ const def_name = [
 ];
 
 const url = 'mongodb://localhost:27017/';
-const dbName = 'testing';
-const colName = 'cacheColl';
+const dbName = 'cache_testing';
+const colName = 'cache_testing';
 const nName = def_name.length;
+const amount = 5000;
+
+const clientPair = (function() {
+  let clients;
+
+  async function createInstance() {
+    const client = await createMongoClient(url, { useNewUrlParser: true });
+    const db = client.db(dbName);
+    const coll = db.collection(colName);
+    const redis = new RedisClient();
+    return { db, coll, redis };
+  }
+
+  return {
+    getInstance: async function() {
+      if (!clients) {
+        clients = await createInstance();
+      }
+
+      return clients;
+    }
+  };
+})();
 
 function randName() {
   // random number between 0 and nName
@@ -35,25 +58,16 @@ function randName() {
   return def_name[i];
 }
 
-async function createCollection() {
-  const client = await createMongoClient(url, { useNewUrlParser: true });
-  const db = client.db(dbName);
-  const col = db.collection(colName);
-  return col;
+async function cleanUp() {
+  const clients = await clientPair.getInstance();
+  const coll = clients.coll;
+  await coll.drop();
+  clients.redis.flushall();
 }
 
-async function cleanData() {
-  try {
-    const col = await createCollection();
-    await col.drop();
-  } catch (error) {
-    throw error;
-  }
-}
-
-// create mock database
-async function generateData(amount) {
-  const col = await createCollection();
+async function prepare() {
+  const clients = await clientPair.getInstance();
+  const coll = clients.coll;
   const listDoc = [];
 
   for (let i = 0; i < amount; i++) {
@@ -67,12 +81,11 @@ async function generateData(amount) {
     listDoc.push(doc);
   }
 
-  await col.insertMany(listDoc);
+  await coll.insertMany(listDoc);
 }
 
 module.exports = {
-  createCollection,
-  generateData,
-  cleanData,
-  RedisClient
+  prepare,
+  cleanUp,
+  clientPair
 };
