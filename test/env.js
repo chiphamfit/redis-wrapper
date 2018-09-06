@@ -25,8 +25,8 @@ const def_name = [
 ];
 
 const url = 'mongodb://localhost:27017/';
-const dbName = 'cache_testing';
-const colName = 'cache_testing';
+const dbName = 'cache_db';
+const colName = 'cache_coll';
 const nName = def_name.length;
 const amount = 5000;
 

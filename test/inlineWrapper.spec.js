@@ -64,14 +64,14 @@ describe('InlineWrapper', () => {
     });
 
     it('get all document suitable with query condition', async () => {
-      const exp = {
+      const query = {
         $and: [
           { $or: [{ height: 0.99 }, { weight: 1.99 }] },
           { $or: [{ name: 'William' }, { weight: { $lt: 20 } }] }
         ]
       };
-      const docs = await inlineClient.find(exp);
-      const res = await coll.find(exp).toArray();
+      const docs = await inlineClient.find(query);
+      const res = await coll.find(query).toArray();
       assert.equal(docs.length, res.length);
     });
   });
