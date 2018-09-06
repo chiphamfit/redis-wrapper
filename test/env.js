@@ -73,8 +73,8 @@ async function prepare() {
   for (let i = 0; i < amount; i++) {
     const doc = {
       name: randName(),
-      height: (Math.random() * 2).toFixed(2),
-      weight: (Math.random() * 85).toFixed(2),
+      height: Number((Math.random() * 2).toFixed(2)),
+      weight: Number((Math.random() * 85).toFixed(2)),
       sex: Math.random() < 0.5 ? 'male' : 'female'
     };
 
@@ -85,6 +85,7 @@ async function prepare() {
 }
 
 module.exports = {
+  amount,
   prepare,
   cleanUp,
   clientPair

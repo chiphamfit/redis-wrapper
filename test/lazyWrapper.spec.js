@@ -1,14 +1,13 @@
 /* eslint-env node, mocha */
 const { LazyWrapper } = require('..');
-const { cleanUp, prepare, clientPair } = require('./env');
+const { amount, cleanUp, prepare, clientPair } = require('./env');
 const { assert } = require('chai');
 
-describe.skip('LazyWrapper', () => {
+describe('LazyWrapper', () => {
   let coll, redis, lazyClient;
   const name = 'Noah';
   const expire = 120;
   const round = 20;
-  const nDocument = 500;
   const query = {
     name: name
   };
@@ -55,12 +54,12 @@ describe.skip('LazyWrapper', () => {
   });
 
   describe('#find()', () => {
-    it(`find ${nDocument} documents, ${round} times in collection`, async () => {
+    it(`find ${amount} documents, ${round} times in collection`, async () => {
       lazyClient = new LazyWrapper(coll, expire);
 
       for (let i = 0; i < round; i++) {
         const res = await lazyClient.find();
-        assert.lengthOf(res, nDocument);
+        assert.lengthOf(res, amount);
       }
     });
 
