@@ -147,5 +147,6 @@ for advance usage. Note: `option` parameter currently not availabe.
 const docs = await inlineClient.find();
 ```
 
-More practice can be found at ./test
+More practice can be found at ./test.
+
 If you have any interest or question please feel free to contact me at thanhchi.fit.hcmus@gmail.com
