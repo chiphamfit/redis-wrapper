@@ -68,20 +68,26 @@ async function cleanUp() {
 async function prepare() {
   const clients = await clientPair.getInstance();
   const coll = clients.coll;
-  const listDoc = [];
+  const buffer = 1000;
+  const nloop = amount / buffer;
 
-  for (let i = 0; i < amount; i++) {
-    const doc = {
-      name: randName(),
-      height: Number((Math.random() * 2).toFixed(2)),
-      weight: Number((Math.random() * 85).toFixed(2)),
-      sex: Math.random() < 0.5 ? 'male' : 'female'
-    };
+  for (let i = 0; i < nloop; i++) {
+    const ceil = Math.min(buffer, amount);
+    const listDoc = [];
 
-    listDoc.push(doc);
+    for (let j = 0; j < ceil; j++) {
+      const doc = {
+        name: randName(),
+        height: Number((Math.random() * 2).toFixed(2)),
+        weight: Number((Math.random() * 85).toFixed(2)),
+        sex: Math.random() < 0.5 ? 'male' : 'female'
+      };
+
+      listDoc.push(doc);
+    }
+
+    await coll.insertMany(listDoc);
   }
-
-  await coll.insertMany(listDoc);
 }
 
 module.exports = {
