@@ -33,7 +33,7 @@ That data will be deleted after a period called expire. Have two cases can happe
 
    Query executed on the main database (mongo). Then, data saved into the cache and return to the application.
 
-![lazy-load image](./docs/images/lazy-load.png)
+![lazy-load image](./images/lazy-load.png)
 
 ### II. How to use
 
@@ -98,6 +98,9 @@ Inline cache sits in-line with the database. At first, it loads all data from th
 
 InlineWrapper need call `init()` function first to load all MongoDB data to cache. It will separate all documents into a small bucket (hash), each bucket store 1000 documents, this way can optimize memory very efficiently. See this articles for further [Storing hundreds of millions of simple key-value pairs in Redis](https://instagram-engineering.com/storing-hundreds-of-millions-of-simple-key-value-pairs-in-redis-1091ae80f74c) and [Redis Memory optimization](https://redis.io/topics/memory-optimization). Each document's will has an inverted index base on its property (use for find with query filter).
 
+![Read](./images/inline-read.png)
+![Write](./images/inline-write.png)
+
 ### II. How to use
 
 1. Create client
@@ -129,7 +132,7 @@ const inlineClient = new InlineWrapper(coll, redisClient, expire);
 
 2. Initial data
 
-Load all data from the MongoDB database and store in cache. Took ~4.56Mb for
+Load all data from the MongoDB database and store in cache.
 
 ```javascript
 await inlineClient.init();
